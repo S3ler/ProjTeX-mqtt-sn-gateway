@@ -1,17 +1,17 @@
 \section{Linux Gateway Implementation}\label{sec:linuxgatewayimplementation}
-In the following section we will introduce the linux gateway\footnote{\url{https://github.com/S3ler/linux-mqtt-sn-gateway}} implementation of the MQTT-SN gateway's Core Gateway Components propose in \autoref{sec:coregatewaycomponents}.
+In the following section we will introduce the Linux gateway\footnote{\url{https://github.com/S3ler/linux-mqtt-sn-gateway}, commit 3a7174f9960236634274cf64abdb256500e12fdc} implementation of the MQTT-SN gateway's Core Gateway Components propose in \autoref{sec:coregatewaycomponents}.
 We provide hardware and software depend implementations of the Core Components interfaces.
 First we introduce the development environment, then we give an overview over the implemented components and discuss their implementations details.
 At the end of the section we revisit our implementation and reflect it regarding to portability.
 
 \subsection{Development Environment}\label{sec:developmentenvironment}
-As already mentioned in \autoref{sec:nonfunctionallimitationsandrequirements} we do not directly develop for the target environments.
+As already mentioned in \autoref{sec:nonfunctionallimitationsandrequirements} we do not directly develop for the target environments, but prototypically converted parts of the whole project to the ESP8266 target environment\footnote{\url{git@github.com:S3ler/NodeMCU-mqtt-sn-gateway.git}, commit abfc0baac4e1a60cd509a8d53a21fe865d16fa2a}.
 As operating system we use Ubuntu 16.04\footnote{Ubuntu 16.04 Kernel 4.10.0-35-generic x86\_64 build SMP Wed Sep 13 09:02:42 UTC 2017} with a 64 Bit Processor\footnote{64 bit AMD Phenom(tm) II X4 960T Processor}, 8 GB RAM\footnote{2x 4GiB DIMM DDR3 Synchron 1066 MHz} and a 240 GB SSD\footnote{240GB Crucial\_CT240M50}.
 For a full hardware overview see appendix \autoref{sec:developmentenvironmenthardware}.
 The used integrated development environment (IDE) is Clion2017\footnote{Clion 2017.2.1 Build\#CL-172.3544.40, build on August 2, 2017}, as build tool we use CMake\footnote{CMake version 3.6} and gcc\footnote{gcc version 5.4.0 20160609 (Ubuntu 5.4.0-6ubuntu1~16.04.4)} with the C++11 standard\cite{ISO:2012:III} as compiler.
 
 \subsection{Linux Component Implementations}\label{sec:linxcomponentimplementations}
-In this section we describe the interface implemented for the introduced development environment. \autoref{img:coreclinuxgatewaycomponentsclassdiagram}
+In this section we describe the interface implementions. \autoref{img:coreclinuxgatewaycomponentsclassdiagram}
 extends \autoref{img:corecomponentsclassdiagram} with the implementing classes namely: LinuxUdpSocket, PahoMqttMessagehandler, LinuxLogger, LinuxPersistent, LinuxSystem.
 \image{14cm}{LinuxClassDiagram.png}{Enviroment depend implementations of interfaces of the linux gateway.}{img:coreclinuxgatewaycomponentsclassdiagram}
 LinuxLogger, LinuxPersistent and LinuxSystem use the Arduino and SD classes from the so called arduino linux abstraction library described in \autoref{sec:arduinolinuxabstraction}.

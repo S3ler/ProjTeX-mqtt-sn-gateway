@@ -1,11 +1,11 @@
 \section{Unit and Regression Testing}\label{sec:unitandregressiontesting}
-Adding more code to support more transmission protocols, platform environments as well as to be sure not breaking existing code we created a test project\footnote{\url{https://github.com/S3ler/test-mqtt-sn-gateway}, commit: cef927611dc5bf3468645342ba0c46e36829106f}. By creating compliance test against the MQTT-SN standard we are able to justify the correctness of our implementation, too.
+Adding more code to support more transmission protocols, platform environments as well as to be sure not breaking existing code we created a test project\footnote{\url{https://github.com/S3ler/test-mqtt-sn-gateway}, commit: be9b11568f847582e4e090c79dec570d928cd8e3}. By creating compliance and functional test against the MQTT-SN standard we are also to justify the correctness of our implementation, too.
 In this section we give a short overview over our test environment consisting of the test framework GoogleTest, the used MQTT Broker, the MQTT-SN test client and the MQTT test client.
 Describing the whole test environment in detail is out of the scope of the project and we advise to take a look at the code directly.
 \subsection{Test Environment}\label{sec:testenvironment}
 As automatic test environment we used the development hardware described in \autoref{sec:developmentenvironment}.
 All tests are started from inside the Clion IDE.
-As test and mock framework we use GoogleTest\footnote{https://github.com/google/googletest.git commit 4bab34d2084259cba67f3bfb51217c10d606e175} and added it as git submodule directly in out test project.
+As test and mock framework we use GoogleTest\footnote{https://github.com/google/googletest.git commit 4bab34d2084259cba67f3bfb51217c10d606e175} and added it as git submodule in our test project.
 Because we need access to google test main's function argc and argv arguments, we created a global header file named google\_test\_main\_arguments.h allocating two extern variable char **t\_argv and int t\_argc.
 Then we changed google test main function to include google\_test\_main\_arguments.h and set the two variables. 
 The variable t\_argv[0] contains the execution path of the program,
@@ -51,6 +51,9 @@ The MqttReceiverInterface and the MqttReceiverMock are necessary to use GoogleMo
 We divided out test cases in two group namely compliance and functional tests.
 Compliance tests stress the interface against well and ill-formed MQTT-SN packets and functional tests check if functionality of the gateway works as standardized or defined by us.
 Of course something stressing the interface includes testing all functionality - in these cases no (redundant) functional tests are written.
+
+At the beginning of each test the MQTT-SN test client, the MQTT test client, the MQTT broker and MQTT-SN gateway is started.
+Then the statuses for the tests are established, then the test is processed.
 \subsubsection{Compliance Tests}\label{sec:compliancetests}
 The compliance tests stresses especially the MqttSnMessageHandler of the Core Components.
 It shall provide well-formed and ill-formed message of a lot of cases to the gateway's SocketInterface.
@@ -58,7 +61,7 @@ For every test the expected reply MQTT-SN test packet is created and given to th
 Of course for some tests we need to create a certain status of the MQTT-SN client in the MQTT-SN gateway.
 For example when we want to test if a client is disconnected by a well-formed disconnect message, we first need to connect the client gratefully to the gateway.
 These statuses are created in the SetUp() function of GoogleTest.
-Of course we first created test cases to check if the statuses can be achieved, before we implemented the dependent test cases.
+We first created test cases to check if the statuses can be achieved, before we implemented the dependent test cases.
 For example we first implemented the test cases for MQTT-SN connect packet until we moved on to test MQTT-SN disconnect packets.
 We oriented ourselves on the procedures of the MQTT-SN client life cycle introduced in \autoref{sec:mqttsnclientlifetime}.
 The compliance tests test the following MQTT-SN packet types: search gateway, connect including will topic and will message, register, publish all implemented Qualities of Service, subscribe, unsubscribe, ping request and disconnect.
@@ -67,9 +70,9 @@ The compliance tests test the following MQTT-SN packet types: search gateway, co
 The functional test shall especially test the functionality of the MQTT-SN gateway implementation against the MQTT-SN standard or the behaviour definitions made by us.
 We oriented the functional test on the MQTT-SN procedures and MQTT-SN packet exchanges of the MQTT-SN client life cycle introduced in \autoref{sec:mqttsnclientlifetime}.
 If test cases are already checked by the compliance tests we do not execute the same tests again.
-The MQTT-SN client and gateway statuses for each test case are created during the SetUp() function of GoogleTest similiar to \autoref{sec:compliancetests}.
-We implemented test for the following procedures: advertisment, subscription, sleep and will message.
-The advertisment tests checks if the correct number MQTT-SN advertisment packets are receiving by MQTT-SN test client inside the give time period.
+The MQTT-SN client and gateway statuses for each test case are created during the SetUp() function of GoogleTest similar to \autoref{sec:compliancetests}.
+We implemented tests for the following procedures mentioned in \autoref{sec:gatewayprocedures}.
+The advertisement tests checks if the correct number MQTT-SN advertisement packets are receiving by MQTT-SN test client inside the give time period.
 The subscription test checks if MQTT-SN publishes are receiving to any kind of topic subscription and QoS methods.
 The sleep tests check if messages are correctly queued for the MQTT-SN client during the sleep procedure.
 The will message tests check if will message are receiving for timed out MQTT-SN client after the correct amount of duration.
@@ -77,11 +80,10 @@ There are no test for connect and publish because they are already tested by the
 
 \subsection{Result of Testing}
 Our test environment with the MQTT-SN test client's exchangeable transmission protocol using the FakeSocketInterface proposed in \autoref{sec:testenvironment} give us the opportunity to reuse the test for multiple transmission protocols.
-In total we wrote 96 unit tests and at the moment 61 test pass and 35 fail\footnote{\url{https://github.com/S3ler/mqtt-sn-gateway/blob/master/Test\%20Results\%20-\%20runAll_Tests_including_longWill.html}, commit d151dae8d65d8c2a96f1d5c7efe7df8d4f3394fc}.
+In total we wrote 96 unit tests and at the moment 90 test pass and 6 fail\footnote{\url{https://github.com/S3ler/test-mqtt-sn-gateway/tree/master/TestResults/2017_10_11}, commit d151dae8d65d8c2a96f1d5c7efe7df8d4f3394fc}.
 Investigating the passing and failing test we observed that the most important functionalities are tested and supported.
-The failing test cases are parse errors of MQTT-SN packet.
-The MqttSnMessageHandler accepts ill-formed packets without disconnecting the MQTT-SN client.
-We were not able to implement all test cases until the end and fix all failing tests in time but the most important procedures especially connect, register, subscribe, publish, sleep and will message are tested properly.
+The failing test cases are already written tests for publish and subscribing to QoS 2.
+We were not able to implement all test cases until the end in time but the most important procedures especially connect, register, subscribe, publish, sleep and will message are tested properly.
 Unfortunately GoogleTest does not provide a way to measure code coverage of tests out of the box.
 We recognized too late that it is possible to use gcov\footnote{\url{http://notsopragmatic.blogspot.de/2012/01/code-coverage-with-gcc.html}, accessed 2017-10-08}, , part of the gnu compiler suite, to measure this.
 Adding more tests, fixing failing tests and measure code coverage is part of a future project.

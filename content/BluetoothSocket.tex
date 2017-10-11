@@ -1,0 +1,92 @@
+\section{Bluetooth Low Energy Socket}\label{sec:BluetoothLowEnergySocket}
+We wanted to use a low power transmission protocol and we decided to use Bluetooth 4.0 Low Energy (BLE).
+One must understand that explaining every detail of the BLESocket implementation would be enough material for a whole new project report.
+This is the reason that we focus on the obstacles and provide a overview so that a basic knowledge of the system and the strategies we used are understood.
+
+To understand Bluetooth one must know that BLE knows two types of devices: central and peripheral devices.
+Peripheral devices act like server and central devices like clients from a connection oriented perspective\footnote{\url{https://devzone.nordicsemi.com/question/232/what-is-a-client-and-server-in-ble/}, accessed 2017-10-08}.
+For example central devices connect to peripheral devices and the peripheral device advertises his presence.
+But from a data perspective saying a server contains the data a client requests, then central devices are the servers and peripherals are the clients.
+Peripheral device are constrained devices like smart wearables and central devices are unconstrained devices like a Raspberry Pi 3.
+So our MQTT-SN devices are peripheral and MQTT-SN gateway are a central devices.
+
+First we give an overview over the problems when trying to program BLE central devices using the Arduino Environment in \autoref{sec:arduinoandble}.
+Then we propose our development environment in \autoref{sec:bledevenv}.
+Afterwards we show how the basic components of the BLESocket in \autoref{sec:blesocket}.
+
+\subsection{Arduino Environment and BLE}\label{sec:arduinoandble}
+Before we started developing the Linux based Bluetooth 4.0 mqtt-sn gateway we looked for a Arduino Board supporting Bluetooth 4.0 as a Central Device.
+We found the nRF51822\footnote{\url{www.waveshare.com/wiki/BLE400}, accessed: 2017-10-08} using the Arduino Core for Nordic Semiconductor nRF5 based boards\footnote{\url{https://github.com/sandeepmistry/arduino-nRF5}, accessed: 2017-10-08} and the ESP32\footnote{\url{espressif.com/en/products/hardware/esp32/overview0}, accessed: 2017-10-08} using the Arduino core for ESP32 WiFi chip library\footnote{\url{https://github.com/espressif/arduino-esp32}, accessed: 2017-10-08}.
+But both projects do not offer a unified or even any non-dirty solution to program the chips as a Bluetooth 4.0 Central Device.
+There was no Bluetooth 4.0 Central library for the Arduino Environment when the project started in 2017-04-01 until we nearly finished in 2017-09-01, too.
+We made several attempt and tried out the nRF51822 with some software but creating a own Bluetooth 4.0 Central library for the Arduino Environment is out of the scope of this project.
+But for the future the ESP32 seems to be the most promising project as it has a lively discussion around this topic\footnote{\url{https://github.com/espressif/arduino-esp32/issues/423\#issuecomment-331028980}, accessed: 2017-10-08}.
+An alternative can be the new released Arduino Primo\footnote{\url{https://store.arduino.cc/arduino-primo}, accessed: 2017-10-08}.
+But the release date was somehow never really published so we could not expect that the board will become available in time.
+At the end of the project the board was available.
+As a result of this whole mess we dropped our attempted to port a Bluetooth 4.0 MQTT-SN gateway to the Arduino Environment and started to program a Linux based version.
+
+\subsection{Development Environment}\label{sec:bledevenv}
+As development and test environment we use the hardware and software described in \autoref{sec:developmentenvironment} and \autoref{sec:testenvironment}.
+As Bluetooth 4.0 development hardware we use a 7-way hama USB 2.0 Hub with a external power source and four CSL USB Bluetooth Nano-Adapter V4.0 connected to the USB Hub.
+A closer look of the devices in appendix \autoref{sec:appendixbledevenv}.
+Additionally we use BlueZ version 5.37.
+\subsection{BLESocket}\label{sec:blesocket}
+For the implementation of the BLESocket class we use the SimpleBluetoothLowEnergySocket which is short discussed in \autoref{sec:simplebluetoothlowenergysocket}. Then we introduce the BLESocket implementation in \autoref{sec:blesocketimplementation}.
+\subsubsection{SimpleBluetoothLowEnergySocket}\label{sec:simplebluetoothlowenergysocket}
+For implementing the BLESocket we need to write our own SimpleBluetoothLowEnergySocket library\footnote{\url{https://github.com/S3ler/SimpleBluetoothLowEnergySocket}, commit: 0ef008057efd6df3b5d10196bc7397f32b18ee2}.
+SimpleBluetoothLowEnergySocket support Central Device use only.
+Explaining this library is out of the scope of this project.
+But the reasons for creating our own Bluetooth 4.0 Library for Linux are the followings.
+Little to no tutorials on how to program Bluetooth LE with C/C++ under Linux are available.
+Programming Bluetooth 4.0 directly against the C hci files of the BlueZ library needs root privileges during runtime, this is not acceptable.
+Using  Bluetooth 4.0 without root privileges is only possible via the DBUS\footnote{\url{https://www.freedesktop.org/wiki/Software/dbus/}, accessed: 2017-10-08} interface.
+The more obstacles appeared.
+There is no up-to-date dbus library for C++ available.
+Then we needed to use D-Bus Glib\footnote{\url{https://developer.gnome.org/dbus-glib/unstable/}, accessed: 2017-10-08}, because the low-level D-Bus library uses a lot more time to unterstand\footnote{\url{https://dbus.freedesktop.org/doc/api/html/} says: "If you use this low-level API directly, you're signing up for some pain." Accessed: 2017-10-08}.
+Then we could not find good tutorials on using Glib, giving us enough information to understand the Glib API Reference and D-Bus at the same time.
+Last we obtained the BlueZ source code
+\footnote{\url{http://www.bluez.org/release-of-bluez-5-46/}, accessed: 2017-10-08}
+ and created a CLion project running the bluetoothctl tool
+\footnote{\url{https://github.com/S3ler/bluetoothctl546_experiments}, commit: c25504da0de9742f056094872ab6c31c791cc377}.
+With this CLion project, the BlueZ documentation, d-feet\footnote{\url{https://apps.ubuntu.com/cat/applications/d-feet/}, accessed: 2017-10-08} and countless hours of trial and error we were able finally to create the SimpleBluetoothLowEnergySocket library.
+\subsection{BLESocket Implementation}\label{sec:blesocketimplementation}
+As shown in \autoref{img:blesocketcollaborationdiagram} the BLESocket classes uses four additional classes.
+When the BLESocket begin() function is called the BLEConnectionAcceptor is started.
+The BLEConnectionAcceptor scans continously for pheripheral of any kind. It runs in a own thread.
+When a peripheral is found a new BLEConnection is created by the BLEConnectionAcceptor.
+Then the BLEConnection's thread is started.
+The BLEConnectionAcceptor now can create the next BLEConnection without blocking.
+The BLEConnection started by the BLEConnectionAcceptor tries to connect to the peripheral device.
+Successfully connected to the peripheral it check for three special GATT\footnote{\url{https://www.bluetooth.com/specifications/gatt/services}, accessed: 2017-10-08} services\footnote{
+	three speical BLE GATT service UUIDs
+	\begin{itemize}
+		\item UUID: "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
+		\item UUID: "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
+		\item UUID: "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+	\end{itemize}}.
+
+\image{10cm}{BLESocketCollaborationDiagram.png}{Collaboration diagram of the BLESocket class using the MqttSnMessageHandler}{img:blesocketcollaborationdiagram}
+If these services are found the BLEConnection has established a connection to a valid MQTT-SN client via BLE.
+MQTT-SN message are received via GATT notifications.
+
+Because all BLEConnections run in a own thread and work completely asynchronously from the rest of the gateway, we somehow need to synchronize the interaction between the BLESocket as part of the MQTT-SN gateway loop() thread and the BLEConnections.
+This is implemented as followed.
+Each BLEConnection and the BLESocket have access to a shared thread save message queue.
+This message queue is filled with instance of the BLEMessage classes when a BLEConnection receives a BLE datagram.
+In each loop() call of the BLESocket one BLEMessage is enqueued and consumed by the MqttSnMessageHandler.
+This is how we synchronize receiving datagrams from many threaded BLEConnection to one BLESocket.
+
+When the BLESocket shall send data to a MQTT-SN client the device\_address given from the MqttSnMessageHandler is converted to a BLE MAC address.
+Now it iterates over all active BLEConnections and sends the matching one the MQTT-SN packet via GATT service.
+
+One problem occur when we always scan for new BLE peripheral devices.
+The BLEConnectionAcceptor continously created BLEConnection for not connect able or non MQTT-SN clients (missing GATT services).
+To prevent this from happening we manage a set of BLEStatistic by the BLEConnectionAcceptor and so BLE peripheral which are too often unsuccessfully connected are ignored for period of time (for example 10 minutes).
+\subsection{Result}
+We roughly showed how we can add a new transmission protocol, in this case a Bluetooth 4.0 Low Energy to the existing gateway code.
+The implementation of the connection oriented BLESocket is similar to the coding style of a typical TCP server.
+Connections are handled in their own thread.
+We only needed to synchronize the access to the BLEMessage queue and enqueue messages.
+The BLESocket now behaves like a single threaded socket.
+The BLEMessage queue bufferes the incoming messages similar to a UDP socket's datagram buffer.

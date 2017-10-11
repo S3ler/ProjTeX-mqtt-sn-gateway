@@ -1,0 +1,254 @@
+\section{Appendix} 
+\subsection{Development Environment Hardware}\label{sec:developmentenvironmenthardware}
+\begin{small}
+\begin{verbatim}
+
+$ lscpu
+Architecture:          x86_64
+CPU op-mode(s):        32-bit, 64-bit
+Byte Order:            Little Endian
+CPU(s):                4
+On-line CPU(s) list:   0-3
+Thread(s) per core:    1
+Core(s) per socket:    4
+Socket(s):             1
+NUMA node(s):          1
+Vendor ID:             GenuineIntel
+CPU family:            6
+Model:                 23
+Stepping:              10
+CPU MHz:               1998.000
+BogoMIPS:              5302.48
+Virtualization:        VT-x
+L1d cache:             32K
+L1i cache:             32K
+L2 cache:              2048K
+NUMA node0 CPU(s):     0-3
+
+$ sudo lshw -short
+H/W-Pfad                  Gerät      Klasse      Beschreibung
+==============================================================
+                                      system      To Be Filled By O.E.M. (To Be Filled By O.E.M.)
+/0                                    bus         990FX Extreme4
+/0/4                                  processor   AMD Phenom(tm) II X4 960T Processor
+/0/4/5                                memory      512KiB L1 Cache
+/0/4/6                                memory      2MiB L2 Cache
+/0/4/7                                memory      6MiB L3 Cache
+/0/10                                 memory      8GiB Systemspeicher
+/0/10/0                               memory      4GiB DIMM DDR3 Synchron 1066 MHz (0,9 ns)
+/0/10/1                               memory      DIMMProject-Id-Version: lshwReport-Msgid-Bugs-To: FULL NAME <EMAIL@ADDRESS>POT-Creation-Date: 2009-10-08 14:02+0200PO-Revision-Date: 2012-05-30 08:16+0000Last-Tra
+/0/10/2                               memory      4GiB DIMM DDR3 Synchron 1066 MHz (0,9 ns)
+/0/10/3                               memory      DIMMProject-Id-Version: lshwReport-Msgid-Bugs-To: FULL NAME <EMAIL@ADDRESS>POT-Creation-Date: 2009-10-08 14:02+0200PO-Revision-Date: 2012-05-30 08:16+0000Last-Tra
+/0/0                                  memory      64KiB BIOS
+/0/100                                bridge      RD890 PCI to PCI bridge (external gfx0 port B)
+/0/100/2                              bridge      RD890 PCI to PCI bridge (PCI express gpp port B)
+/0/100/2/0                            display     GK104 [GeForce GTX 760]
+/0/100/2/0.1                          multimedia  GK104 HDMI Audio Controller
+/0/100/4                              bridge      RD890 PCI to PCI bridge (PCI express gpp port D)
+/0/100/4/0                            storage     88SE912x SATA 6Gb/s Controller [IDE mode]
+/0/100/5                              bridge      RD890 PCI to PCI bridge (PCI express gpp port E)
+/0/100/5/0                            bus         EJ168 USB 3.0 Host Controller
+/0/100/5/0/0              usb8        bus         xHCI Host Controller
+/0/100/5/0/0/2                        bus         USB2.0 Hub
+/0/100/5/0/1              usb9        bus         xHCI Host Controller
+/0/100/5/0/1/2                        bus         USB3.0 Hub
+/0/100/5/0/1/2/3          scsi11      storage     USB Storage
+/0/100/5/0/1/2/3/0.0.0    /dev/sdc    disk        STORAGE DEVICE
+/0/100/5/0/1/2/3/0.0.0/0  /dev/sdc    disk        
+/0/100/6                              bridge      RD890 PCI to PCI bridge (PCI express gpp port F)
+/0/100/6/0                            bus         EJ168 USB 3.0 Host Controller
+/0/100/6/0/0              usb10       bus         xHCI Host Controller
+/0/100/6/0/1              usb11       bus         xHCI Host Controller
+/0/100/9                              bridge      RD890 PCI to PCI bridge (PCI express gpp port H)
+/0/100/9/0                            bus         VT6315 Series Firewire Controller
+/0/100/9/0.1                          storage     VT6415 PATA IDE Host Controller
+/0/100/a                              bridge      RD890 PCI to PCI bridge (external gfx1 port A)
+/0/100/a/0                eth0        network     NetLink BCM57781 Gigabit Ethernet PCIe
+/0/100/11                             storage     SB7x0/SB8x0/SB9x0 SATA Controller [IDE mode]
+/0/100/12                             bus         SB7x0/SB8x0/SB9x0 USB OHCI0 Controller
+/0/100/12/1               usb4        bus         OHCI PCI host controller
+/0/100/12/1/1                         input       USBGamingMouse
+/0/100/12/1/2                         input       USB Keyboard
+/0/100/12.2                           bus         SB7x0/SB8x0/SB9x0 USB EHCI Controller
+/0/100/12.2/1             usb1        bus         EHCI Host Controller
+/0/100/13                             bus         SB7x0/SB8x0/SB9x0 USB OHCI0 Controller
+/0/100/13/1               usb5        bus         OHCI PCI host controller
+/0/100/13.2                           bus         SB7x0/SB8x0/SB9x0 USB EHCI Controller
+/0/100/13.2/1             usb2        bus         EHCI Host Controller
+/0/100/13.2/1/2           scsi10      storage     Intenso Speed Line
+/0/100/13.2/1/2/0.0.0     /dev/sdb    disk        15GB SCSI Disk
+/0/100/13.2/1/2/0.0.0/1   /dev/sdb1   volume      14GiB Windows NTFS Laufwerk
+/0/100/14                             bus         SBx00 SMBus Controller
+/0/100/14.1                           storage     SB7x0/SB8x0/SB9x0 IDE Controller
+/0/100/14.2                           multimedia  SBx00 Azalia (Intel HDA)
+/0/100/14.3                           bridge      SB7x0/SB8x0/SB9x0 LPC host controller
+/0/100/14.4                           bridge      SBx00 PCI to PCI Bridge
+/0/100/14.5                           bus         SB7x0/SB8x0/SB9x0 USB OHCI2 Controller
+/0/100/14.5/1             usb6        bus         OHCI PCI host controller
+/0/100/16                             bus         SB7x0/SB8x0/SB9x0 USB OHCI0 Controller
+/0/100/16/1               usb7        bus         OHCI PCI host controller
+/0/100/16.2                           bus         SB7x0/SB8x0/SB9x0 USB EHCI Controller
+/0/100/16.2/1             usb3        bus         EHCI Host Controller
+/0/101                                bridge      Family 10h Processor HyperTransport Configuration
+/0/102                                bridge      Family 10h Processor Address Map
+/0/103                                bridge      Family 10h Processor DRAM Controller
+/0/104                                bridge      Family 10h Processor Miscellaneous Control
+/0/105                                bridge      Family 10h Processor Link Control
+/0/1                      scsi2       storage     
+/0/1/0.0.0                /dev/sda    disk        240GB Crucial_CT240M50
+/0/1/0.0.0/1                          volume      511MiB Windows FAT Laufwerk
+/0/1/0.0.0/2              /dev/sda2   volume      215GiB EXT4-Laufwerk
+/0/1/0.0.0/3              /dev/sda3   volume      8185MiB Linux swap Laufwerk
+/0/2                      scsi7       storage     
+/0/2/0.0.0                /dev/cdrom  disk        DVDRAM GH24NSB0
+\end{verbatim}
+\end{small}
+
+\subsection{Example MQTT.CON file}\label{sec:examplemqttconfile}
+\begin{small}
+\begin{verbatim}
+brokeraddress 127.0.0.1
+brokerport 1883
+clientid mqtt-sn linux gateway
+willtopic /mqtt/sn/gateway
+willmessage mqtt-sn linux gateway offline
+willqos 1
+willretain 0
+\end{verbatim}
+\end{small}
+
+\subsection{LinuxPersistent Dataobjects}
+\subsubsection{Gateway Subscription List Entry}\label{sec:gatewaysubscriptionlistentry}
+\begin{small}
+	\begin{verbatim}
+struct entry_mqtt_subscription{
+	uint32_t client_subscription_count;
+	char topic_name[255];
+};
+	\end{verbatim}
+\end{small}
+\subsubsection{Client Will Messsage Entry}\label{sec:willmessageentry}
+\begin{small}
+	\begin{verbatim}
+struct entry_will {
+	char willtopic[255];
+	char willmsg[255];
+	uint8_t willmsg_length;
+	uint8_t qos;
+	bool retain;
+};
+	\end{verbatim}
+\end{small}
+\subsubsection{Client Subscription List Entry}\label{sec:clientsubscriptionlistentry}
+\begin{small}
+	\begin{verbatim}
+struct entry_subscription{
+	uint16_t topic_id;
+	uint8_t qos;
+	char topic_name[255];
+};
+	\end{verbatim}
+\end{small}
+\subsubsection{Client Registration List Entry}\label{sec:clientregistrationlistentry}
+\begin{small}
+	\begin{verbatim}
+struct entry_registration{
+	uint16_t topic_id;
+	char topic_name[255];
+	bool known;
+};
+	\end{verbatim}
+\end{small}
+\subsubsection{Client Publish Queue Entry}\label{sec:clientpublishqueueentry}
+\begin{small}
+	\begin{verbatim}
+struct entry_publish{
+	uint8_t msg[255];
+	uint8_t msg_length;
+	uint16_t topic_id;
+	uint8_t qos;
+	bool retain;
+	bool dup;
+	uint16_t msg_id;
+	uint16_t publish_id;
+	uint32_t retransmition_timeout; // not used atm
+};
+	\end{verbatim}
+\end{small}
+\subsubsection{Gateway Client List Entry}\label{sec:gatewayclientlistentry}
+\begin{small}
+	\begin{verbatim}
+struct entry_client {
+	char client_id[24];
+	char file_number[9];
+	device_address client_address;
+	CLIENT_STATUS client_status;
+	uint32_t duration; // changed
+	uint32_t timeout;
+	uint16_t await_message_id;
+	message_type await_message;
+};
+	\end{verbatim}
+\end{small}
+\subsection{Example Linux Gateway main.cpp}\label{sec:examplelinuxgatewaymaincpp}
+\begin{small}
+	\begin{verbatim}
+#include <libgen.h>
+#include <LinuxGateway.h>
+
+LinuxGateway gateway;
+
+void setup() {
+    while (!gateway.begin()) {
+        std::cout << "Error starting gateway components" << std::endl;
+        exit(1);
+    }
+    std::cout << "Gateway ready" << std::endl;
+}
+
+int main(int argc, char *argv[]) {
+    gateway.setRootPath(dirname(argv[0]));
+    setup();
+    gateway.start_loop();
+
+    while(true) {
+        // we need to keep the program alive
+    }
+}
+
+
+	\end{verbatim}
+\end{small}
+
+\subsection{Bluetooth 4.0 Developement Enviroment}\label{sec:appendixbledevenv}
+\begin{small}
+	\begin{verbatim}
+$ lsusb
+Bus 003 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 007 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub
+Bus 006 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub
+Bus 002 Device 009: ID 0a12:0001 Cambridge Silicon Radio, Ltd Bluetooth Dongle (HCI mode)
+Bus 002 Device 008: ID 0a12:0001 Cambridge Silicon Radio, Ltd Bluetooth Dongle (HCI mode)
+Bus 002 Device 007: ID 05e3:0608 Genesys Logic, Inc. Hub
+Bus 002 Device 006: ID 0a12:0001 Cambridge Silicon Radio, Ltd Bluetooth Dongle (HCI mode)
+Bus 002 Device 005: ID 0a12:0001 Cambridge Silicon Radio, Ltd Bluetooth Dongle (HCI mode)
+Bus 002 Device 004: ID 0a12:0001 Cambridge Silicon Radio, Ltd Bluetooth Dongle (HCI mode)
+Bus 002 Device 003: ID 05e3:0608 Genesys Logic, Inc. Hub
+Bus 002 Device 002: ID 1f75:0917 Innostor Technology Corporation 
+Bus 002 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 005 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub
+Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 004 Device 002: ID 04d9:1603 Holtek Semiconductor, Inc. Keyboard
+Bus 004 Device 003: ID 258a:0012  
+Bus 004 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub
+Bus 011 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+Bus 010 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 009 Device 003: ID 05e3:0743 Genesys Logic, Inc. SDXC and microSDXC CardReader
+Bus 009 Device 002: ID 05e3:0612 Genesys Logic, Inc. 
+Bus 009 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+Bus 008 Device 002: ID 05e3:0610 Genesys Logic, Inc. 4-port hub
+Bus 008 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+
+	\end{verbatim}
+\end{small}
+

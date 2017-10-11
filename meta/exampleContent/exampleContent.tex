@@ -1,0 +1,153 @@
+\section{Introduction and Motivation}\label{sec:ein}
+When building Internet of Things (IoT) Device, often some basic assumption regarding to constraintness of devices are made.
+%Because using cheaper and smaller more constrained hardware
+Because there is no overall definition for THE IoT Device, we need simple protocols running on many different device types.
+From more or less unconstrained device like an normal Personal Computer, a more constrained but still power full device like a Smartphone or an Raspberry Pi 3 to very constrained device without an operating system and a grid power source like a simple end node sensor working on an Arduino Uno.
+
+For unconstrained device and more constrained device normally we use well know technologies for transmitting data.
+These are namely HTTP especially REST and MQTT.
+Both protocols are based on TCP.
+Using them on constrained devices is only possible in two ways.
+Firstly having a Wifi or a Ethernet chip at least. So we are bound to these widespread technologies.
+% TODO absatz zu jedem der technologien schreiben. insbesondere QOS
+% TODO unterschied MQTT zu MQTT-SN beschreiben
+% TODO MQTT-SN kurz beschreiben
+The withdraw regarding to energy consumption are that a lot of energy is used for Wifi and Ethernet, and addionatilly on the upper layer for IP-Adressing.
+Secondly we use a different Layer 2 transmittion technologies like ZigBee or Bluetooth Low Energy (BLE) when implementen 6LowPAN.
+This reduces IP-header size to work on these technologies.
+Implementation for other Layer 2 technologies is always possible.
+Accessing these Network needs only a bridging device acting as a gateway to these systems. For example from ZigBee to a Local Area Network based on Wifi.
+
+For later decision making or data gathering unconstrained devices are used always working with IP based network. And it would not be an Internet of Thing if we cannot connect IoT Device with these.
+So at the end we always end up in IP based networks.
+
+A target for constrained devices is always to reduce power consumption.
+Some devices are directly connected to the grid, they only have a battery which is charged from time to time or even have energy harvesting technologies.
+
+Aside from the Hardware perspective on how we can reduce power consumption, which is a field of constantly changing hardware and outside of the scope of this project, we can reduce power consumption on different layers in the osi-layer stack. These energy saving are most likely not relevant for less constrained devices like an Raspberry Pi, but for very constrained devices working off the grid.
+
+% TODO hier grafiken bauen:
+Our reference energy consumption is HTTP using Rest.
+Firstly by using MQTT which is more lightweight than HTTP we use less energy.
+Secondly we reduce the power consumption further by using MQTT-SN.
+The withdraw is of course that we use a less supported standard, and less maximum payload (MQTT 256 MiB vs MQTT-SN 0.499931 MiB).
+(Calculation is uint16\_t maxvalue is 65535 bytes. Without the MQTT-SN Publish packet headerlength of 8 is 65527 bytes).
+Additionally MQTT-SN support a sleeping state of clients which is not supported im MQTT because of the constant TCP connection relying on.
+Thirdly we can switch from TCP to UDP. Trading the reliability of TCP to less message exchanges and so less energy consumption to the unreliable UDP protocol.
+The reliablity is not completely thrown away, it now depends on the quality of services of the MQTT-SN protocol.
+Fourthly we can exchange the Layer 2 transmition protocol and leave the IP-Adress room. We rely on the Address space of the Layer 2 protocol.
+For example in Bluetooth we use the MAC-Adresses of the Bluetooth Chip directly. This reduces the Header size and enables us to directly put the MQTT-SN packets into Bluetooth LE packets.
+Our target was also to implement the MQTT-SN Gateway for ZigBee but because of copy right/licence problems with the ZigBee Standard there is no direct (Kernel Stack) implementation for Linux so we dropped it for this work.
+
+% TODO terminology: Client = MQTT-SN Client, devices =  Layer2 accress
+When using the MAC-Adresses directly we can run constrained devices logic directly on Bluetooth LE Chips.
+
+These ideas lead to an prototype implementation of a MQTT-SN Gateway which shall not only work on devices with operating systems, but also directly on bare metal device without operating system.
+% TODO erwähnen:
+% TODO Die gateway wurde in der Arduino Environment Style geschrieben: Anstatt Constructoren zur initializierung von Objecten zu verwerden, werden diese mit einem Default constructor ohne Argumente erstellt, anschließend setter genutzt um verknüpfungen herzustellen und dann eine begin() function aufgerufen. Das erleichtert die spätere portierbarkeit auf Arduinos auf welcher man keine Hardware initialisierungen durchführen kann in constructoren von klasse, especially when creating these components as global variables.
+% Außerdem erleichtert es die initialisierung der Gateway, da jede Componente und Klasse der Reihe ähnlich einer Baumstruktur ihre jeweiligen Subcomponenten und klasse in der begin() function verknüpfen und initialisieren kann.
+% If one component is not able to initalize itself properly begin() returns false like in C call style fashion.
+So aside from the fact that we need to meet the MQTT-SN Standard we also have implicitly defined non-compliance non function reqierements above:
+implementation shall be abstracted from operating systems, even harder does not necessarily need an operating system.
+implementation shall be an aggregating gateway. This is a direct result of the fact that we want to design the gateway for constrained devices.
+We assume that constrained devices without operating systems cannot handle one TCP connection for each MQTT-SN client, especially when hundreds of clients are connected.
+The implementation of an aggregating gateway is an additional challenge.
+A second decision was made because of the constrainedness of targeting devices.
+We use C++ to implement the gateway, because then we can later use the Arduino Environment and its Implementations for different devices and chips as an additional hardware abstraction layer.
+implementation shall be abstract layer 2 transmition protocols and technologies. To let our implementation work with different protocols we define an abstract device address consisting only of an array of bytes. This is used to map the connectionless layer 2 packets to the MQTT-SN client within the gateway. It is assumedthat address are unique within one protocol space. For example Bluetooth Low Energy MAC-Adresses are only unique within the BLE address space.
+So as a constrained our MQTT-SN Gateway implementation will only work with one single transmition protocol at a time.
+%TODO example target environments
+
+We decide to split the Gateway into different components.
+A Core Component completely hardware and operating system independent which performs the following functionalities against class interfaces:
+Parsing of incoming MQTT-SN Messages
+Sending of incoming MQTT-SN Messages
+These actions are performed against the MQTT-SN Interface
+
+Receiving of MQTT Messages
+Sending of MQTT Messages
+These actions are performed against an MQTT Interface using an MQTT-Client implementation
+
+Handling states of connected MQTT-SN Clients
+Buffer Messages of MQTT-SN Clients
+These actions are performed against the Persistent Interface.
+
+MQTT-SN Interface, MQTT Interface and MQTT-Client and the Persistent Interface are implemented Hardware and Operating System depend.
+%TODO grafiken und ausbauen
+%TODO schreibe: we provide a reference implementation
+We decide to make a protype implementation for our gateway which can later be ported to the Arduino Environment and so ported to multiple constrained devices.
+As target platform we use Linux as a platfom. As transmition protocol we use UDP. As MQTT Interface implementation we use the MQTT Paho client.
+This means we provide an implementation for the different interfaces in this environment for our prototype.
+
+The LinuxGateway class is a derived class from Gateway.
+It initialized the different Linux specific core components in the begin() function by overriding it.
+Addtitionally it provide a start\_loop() and a stop\_loop() function.
+They are used to start and stop a thread calling the dispatch\_loop() function for continously calling the Gateway's loop() function.
+
+The LinuxUdpSocket initialized in the begin() function a MulticastSocket for receiving broadcasts on the multicast address 224.0.0.0 and a Unicast Socket for receiving message directly addressed to the MQTT-SN Gateway.
+LinuxUdpSocket's loop() function looks if data is buffered inside the OS's udp socket buffer.
+If there is data available the datagram is read out of the socket and the receiveData() function of the MQTTSNMessageHandler core component is called.
+The sender's IP address is converted to a device\_address. The convertion is done for the unicast and broadcast udp socket.
+
+We observed that the implementation of the LinuxUdpSocket is simple because received udp datagrams can be directly converted to MQTT-SN packets and the device\_address is extracted out of the udp datagram's sender ip address.
+
+%TODO grob die aufteilung beschreiben und das Bild
+%TODO differen Core classes
+%TODO Core class beschreiben
+%TODO Gateway class beschreiben
+%TODO LoggerInterface beschreiben
+%TODO MQTTMessageHandlerInterface beschreiben
+%TODO mqttsn_messages.h beschreiben
+%TODO MqttSNMessageHandler beschreiben
+%TODO PersistentInterface beschreiben
+%TODO SocketInterface beschreibene
+
+%TODO Grob das Vorgehen bei der linux udp gateway beschreiben
+%TODO arduino-linux-abstraction beschreiben/reinkopieren
+%TODO LinuxGateway beschreiben
+%TODO LinuxLogger beschreiben
+%TODO LinuxPersistent beschreiben
+The linuxPersistent class implements the PersistentInterface.
+For compapbility with the Arduino Environment we can use no database management system so we implement a file based database.
+We assume in the Arduino Environment data is directly written to an SD Card using the Arduino's SD Card library. Here we use the arduin-linux-abstraction.
+We write binary files vie our SD Card libary. The structure of the different entries in the files are defined by C structs.
+This enables us to ready and write data in binary form struct by struct from and to the SD Card.
+
+%TODO LinuxSystem beschreiben
+The LinuxSystem implements the System interface.
+%TODO MQTTMessageHandlerInterfaceImpl beschreiben
+For the Linux Gateway we use the Eclipse Paho MQTT C client [https://github.com/eclipse/paho.mqtt.c commit 94cc8f431c7746d23dbd015c643e1f9c5cbbbef3]. We implemented the MQTTMessageHandlerInterface in the PahoMqttMessageHandler class with the synchronous function calls of the Eclipse Paho MQTT C client.
+MQTT Packets are receive asynchronous by the Eclipse Paho MQTT C client.
+%TODO: Future work: Later for the Arduino Environment we can use the https://github.com/knolleary/pubsubclient
+
+
+
+\section{Hauptteil}\label{sec:haupt}
+\subsection{Bilder und Grafiken}\label{subsec:grafiken}
+\subsubsection{Bilder}\label{subsubsec:bilder}
+Bilder befinden sich im Image-Orgner und lassen sich mit \textbackslash image\{Breite\}\{Datei im Image-Verzeichnis\}\{Beschriftung\}\{Label\} einbinden. \image{3cm}{logo.png}{Uni-Logo}{img:uni} Die Referenzierung erfolg mittels \textbackslash autoref\{Label\}, also z.B. \autoref{img:uni}.
+\subsubsection{Grafiken mit TikZ}
+Grafiken im TikZ-Framework\footnote{\url{http://www.tn-home.de/TUGDD/Stuff/TikZ_final.pdf}} lassen sich mit dem Befehl \textbackslash scaletikzimage\{Datei im Image Verzeichnis\}\{Beschriftung\}\{Label\}\{Skalierungsfaktor\} einbinden. \scaletikzimage{tikz}{TikZ-Grafik}{img:tikz}{0.9}
+\subsection{Tabellen}
+Tabellen lassen sich mit dem Environment\\
+\textbackslash begin\{longtable\}[H h t b c]\{Spaltendefinitionen\} ...\\
+\qquad\qquad \textbackslash caption\{Tabellenunterschrift\}\\
+\qquad\qquad \textbackslash label\{Label\}\\
+\textbackslash end\{longtable\}\\
+ definieren\footnote{\url{ftp://ftp.dante.de/pub/tex/macros/latex/required/tools/longtable.pdf}}\\
+\begin{longtable}[H]{|p{0.2\textwidth}|p{0.2\textwidth}|p{0.2\textwidth}|}
+\hline
+A&B&C\\
+\hline
+\caption{Tabelle 1}
+\label{tab:tab1}
+\end{longtable}
+\subsection{Code-Ausschnitte}
+Pseudo-Code Ausschnitte lassen sich mit \textbackslash pseudo\{Name des Algorithmus\}\{Label\}\{Datei im Code-Verzeichnis\} einbinden.
+\pseudo{Mittelwert}{lst:mean}{code}
+\section{Zitate}
+Mit \textbackslash nocite*\{\} lassen sich alle Einträge in der Bibliography ausgeben. Mit \textbackslash cite[S. xx]\{Key\} lassen sich Zitate einfügen. Z.B. \cite[S. 234]{Kurose12} \nocite*{}
+\subsection{Abkürzungen}
+
+Abkürzungen können mit \textbackslash nomenclature\{Abk\}\{\textbackslash m\{Abk\}ürzung\} \nomenclature{Abk}{\m{Abk}ürzung} angegeben werden. Diese werden alphabetisch sortiert in ein Abkürzungsverzeichnis aufgenommen.
+

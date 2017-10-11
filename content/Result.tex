@@ -1,0 +1,10 @@
+\section{Conclusion}
+In this project paper we saw how to implement a aggregating MQTT-SN gateway for semi-constrained devices and which design decisions we need to take.
+We use the Arduino Environment to be able to use a wide range of transmission protocol.
+With the Core Components independent implementations we provide a basis to distribute the MQTT-SN gateway to nearly any environment.
+The Linux implementation of the Core Components showed that UDP could be implemented straight forward.
+The other interfaces are implemented using the arduino linux abstraction library to provide a maximum portability to the Arduino Environment.
+Then we create a automated unit test and regression test environment to check our implementation.
+Although not all tests are passing the gateway can be used with real MQTT-SN clients because it offers enough stable functionality.
+Last we showed how the existing code is to extend when we want to support more transmission protocols.
+We can say our project was a full success - we learned a lot about using the Arduino Environment and developing portable software for constrained devices using exchangeable implementations.

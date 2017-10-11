@@ -1,0 +1,67 @@
+\section{Project Blastoff - Non-Functional Limitations and  Requirements}\label{sec:nonfunctionallimitationsandrequirements}
+When implementing a MQTT-SN gateway on constrained device we encounter different non-functional requirements and non-functional limitations.
+The functional requirements are obvious and directly derived from MQTT-SN standard.
+Of course we need to implement the protocol and message exchanges defined in the standard.
+These build our functional requirements but are not discusses in detail because they are identified in \autoref{sec:gatewayprocedures}.
+In this section we define additional non-functional requirements for our implementation by defining a most constrained target platform.
+This target platform consist of two aspects the hardware environment and the software environment.
+The hardware environment defines the transmission protocol we can use and the software environment defines which libraries and API we are forced to use.
+In the following we first describe the target hardware environment then the software environment.
+Afterwards we discuss the limiting characteristics in comparison to an environment with a Linux operating system.
+Then we propose the non-functional requirements arisen from these constrains.
+
+\subsection{Target Hardware Environment}\label{subsec:targethardwareenvironment}
+For selecting the most constrained device we wanted to pick one of the Boards or Chips supported by the Arduino Environment\footnote{\url{https://www.arduino.cc/en/Reference/HomePage}, accessed: 2017-10-08}.
+This is the reason that we start picking the most constrained device from the official Arduino Boards the Arduino Uno.
+When we use a constrained device like an Atmel Atmega328P used on an Arduino Uno Boards we have only 2 KB SRAM. This is the greatest restriction\footnote{\url{https://store.arduino.cc/arduino-uno-rev3}, accessed: 2017-10-08}.
+Other micro-controllers like the Atmel Atmega2560 used on the Arduino Mega 2560 Boards have 8 KB of SRAM\footnote{\url{https://store.arduino.cc/arduino-mega-2560-rev3}, accessed: 2017-10-08}.
+But RAM is still the greatest restriction.
+To compensate the missing RAM, we suggest to use a SD Card for saving data structures.
+
+Selecting a transmission protocol depends on the hardware we can use.
+For a simplest prototype UDP for the MQTT-SN network and a TCP socket for MQTT can be used.
+We decide to use UDP because it can run on nearly any Ethernet or WiFi chip supporting a TCP socket, too.
+So we decided to use the Arduino Ethernet Shield V1\footnote{\url{https://www.arduino.cc/en/Main/ArduinoEthernetShieldV1}, , accessed: 2017-10-08} as hardware for the transmission protocols.
+Additionally the Ethernet Shield V1 contains an onboard micro-SD card slot.
+
+We defined an Arduino Mega 2560 Board, Arduino Ethernet Shield V1 and a 4 GB micro-SD card as our minimum target hardware platform.
+But because we feared that we do not have enough time to optimise the RAM consumption of our implementation we decided to take a chip with more RAM.
+So we redefined our final target hardware environment to an ESP8266 and a SD Card Slot for a 4 GB SDHC SD card as shown in \autoref{img:targethardwareenvironment}.
+The only hardware then needed is a simple USB-C to USB-A cable and a power source.
+The target hardware environment is a semi-constrained device defined in \autoref{sec:semiconstraineddevice}.
+\image{5cm}{SDCardTestBoard.jpg}{Target hardware environment with a ESP8266 and a SD Card Slot containing a 4 GB SDHC SD card.}{img:targethardwareenvironment}
+
+\subsection{Target Software Environment}\label{subsec:targetsoftwareenvironment}
+We decided to use the Arduino Environment\footnote{\url{https://www.arduino.cc/en/Reference/HomePage}, accessed: 2017-10-08} as target software environment.
+The Arduino Environment provides a lot of libraries with a unified programing interface and can be used for a lot of different kind of micro controllers and chips.
+
+The ESP8266\footnote{\url{https://opencircuit.nl/ProductInfo/1000088/NodeMCU-v2.pdf}, accessed: 2017-10-08} defined in \autoref{subsec:targethardwareenvironment} can be programmed with the Arduino Environment using the ESP8266 core for Arduino firmware\footnote{\url{https://github.com/esp8266/Arduino}, accessed: 2017-10-08}.
+The ESP8266 is already fully working WiFi chip so no external Arduino Shields are necessary.
+It has 128 KBytes RAM and thus provides a stable platform for a first prototype.
+The SDHC Card Slot is wired to the ESP8266 by the SPI bus system\footnote{\url{https://www.arduino.cc/en/Reference/SPI}, accessed: 2017-10-08}.
+It can be use with the SD Library for Arduino \footnote{\url{https://github.com/esp8266/Arduino/tree/master/libraries/SD}, accessed: 2017-10-08}.
+
+This use of the Arduino Environment gives us the opportunity to run the finished MQTT-SN Gateway on as many different environments as possible.
+The SD Library for Arduino used by the ESP8266 core for Arduino provides the same API as the SD Library we use with a Arduino Mega 2560 Board and a Ethernet Shield V1.
+This means we can later, in a future work, optimize the MQTT-SN software for more constrained enviromnents without exchanging the SD Library or rewriting this part.
+Note that we do not develop the prototype for the target hardware and software environments directly instead we build a prototype on a linux operating system which can be ported to the target environments.
+\subsection{Limitations and Requirements}\label{sec:limitationsandrequirements}
+In the following we discuss the limitations of the hardware and software environment.
+As already mentioned in \autoref{subsec:targethardwareenvironment} the RAM size is obviously the greatest limitation.
+Additionally on micro controllers heap allocation leads to heap fragmentation.
+As a consequence of the RAM limitation heap allocation should never be used.
+Second when programming bare metal hardware with the Arduino Enviromnent we need to use C/C++ as programming language.
+There is also a hidden limitation because the ESP8266 core for Arduino (as well as the Arduino Environment) does not provide all ISO C standard libraries functions like the siscanf() function\footnote{\url{https://github.com/esp8266/Arduino/issues/404}, accessed: 2017-10-08}.
+Other limitations are that we can only port the finished MQTT-SN gateway to hardware supporting the Arduino Environment.
+But there is no alternative wich has a similiar hardware support than the Arduino Environment.
+If implementors want to support their hardware they at least need to map these functionalities to their hardware environment.
+We decided to implement a aggregating gateway like described in \autoref{sec:mqttsngatewayarchitectures} because our hardware environment is not able to maintain more than e few TCP connections at once.
+For a first prototype especially for a good IDE and automatic testing we implement an Linuxx.
+
+The resulting requirements are simple, stack only allocation of resources, reduce the stack size as much as possible, map environment functionality to Arduino Libraries or implement it specifically for your environment for example Linuxx.
+
+\subsubsection{Prototype Limitations}
+We do not implement the full MQTT-SN standard feature set into our prototype.
+We decided not to implement receive and send publishes with QoS 2, will message update functionality.
+The maximum message length is defined to 255 bytes.
+%TODO wenn noch mehr gefunden werden reinschreiben

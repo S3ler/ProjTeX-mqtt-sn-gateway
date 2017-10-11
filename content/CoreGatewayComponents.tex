@@ -1,0 +1,287 @@
+\section{Core Gateway Components}\label{sec:coregatewaycomponents}
+In the following section we will propose the Core Components of the MQTT-SN gateway\footnote{\url{https://github.com/S3ler/core-mqtt-sn-gateway}}.
+They are developed after the functional requirements derived from the MQTT-SN standard as so called procedures in \autoref{sec:gatewayprocedures} and the non-functional requirement discussed in \autoref{sec:nonfunctionallimitationsandrequirements}.
+The main Task of the Core Components is providing either hardware and software environment independent implementations or interface for functionality which cannot be implemented environment independent.
+These interface need to be implemented by a vendor or for a operating system as we do in \autoref{sec:linuxgatewayimplementation}.
+In this section we first give an overview over the different components in this subproject as well as discuss general design decisions.
+Then we propose behavior procedures, used during the lifetime of a MQTT-SN client and discuss how we implement them.
+These behaviour procedures are functional requirements derived from the MQTT-SN standard.
+At the end we consider pros and contras of our design.
+
+\subsection{Components Overview}
+The Core Components consists as shown in \autoref{img:corecomponentsclassdiagram} of two environment independent classes and five environment depend interfaces.
+The classes are namely the MqttSnMessageHandler and the Core.
+The reason that the Core class is divided into CoreInterface and CoreImpl is only that a C++ interface is easier mockable by GoogleMock\footnote{\url{https://github.com/google/googletest}, commit: 7b6561c56e353100aca8458d7bc49c4e0119bae8}. In the following Core means both the CoreInterface and CoreImpl as one finished class.
+The interfaces are the SocketInterface, MqttMessageHandler, System, LoggerInterface and PersistentInterface.
+In the following we describe the tasks, functionalities, to give implementors of these components an idea.
+\image{12cm}{CoreClassDiagram.png}{Classes and Interface of the gateway core components}{img:corecomponentsclassdiagram}
+%\subsection{Understanding the loop() function}
+\subsubsection{SocketInterface}
+The SocketInterface shall provide an abstraction from the transmission protocol.
+It only consists of a few method, namely the begin() function to start the component, setter for the Logger and the MqttSnMessageHandler.
+The MqttSnMessageHandler shall receive full received datagrams and parse them.
+The loop() function shall call MQTTSNMessageHandler's receiveData() function.
+When data is available it should give with the sender's device\_address to the MQTTSNMessageHandler.
+The device\_address is abstract address ( implemented as a simple array of bytes ) to be translated by the SocketInterface from and the used transmission protocol.
+This way of addressing keeps the MQTT-SN gateway core component independently from any special networking addressing schema.
+\subsubsection{MqttSnMessageHandler class}
+The MqttSnMessageHandler has two tasks: parsing incoming datagram and create outgoing datagrams.
+It provide a set of method that create MQTT-SN packets of all types.
+These MQTT-SN packets are declared as structs in the mqttsn\_messages header file.
+It is one of the two platform independent implemented classes and uses device\_address as identification of MQTT-SN clients.
+The MqttSnMessageHandler starts parsing a datagram when the receiveData() function is called.
+When parsing a well-formed MQTT-SN packet the packet's options are identified and the packet is handled by calling the correct function of the Core class.
+After a Core's class function the return value is used to create a proper answer message.
+
+The MQTT-SN standard says that a "server or gateway may also sends a DISCONNECT to a client, e.g. in case a gateway, due to an error, cannot map a received message to a client"[http://mqtt.org/new/wp-content/uploads/2009/06/MQTT-SN\_spec\_v1.2.pdf].
+When a ill-formed MQTT-SN packet is received the MqttSnMessageHandler shall set the sending MQTT-SN client as disconncted via the Core class.
+This is the equivalent to closing a connection in connection oriented protocol.
+
+\subsubsection{Core class}
+The Core class mediates the different calls from the platform depend interfaces and the MqttSnMessageHandler.
+It performs regular tasks, offering configuration, changing MQTT-SN clients statuses and processing complex behaviour.
+The regular tasks are MQTT-SN client management like checking frequently the timeout of connected MQTT-Clients and sending out queued MQTT publishes for clients.
+This is done during the loop() function calls.
+Other regular task like sending out the MQTT-SN advertisement packet are executed too.
+It also provides a unified way of getting platform independent configurations.
+For example the MqttMessageHandler requests the configuration for the MQTT broker and MQTT client not directly from the PersistentInterface and instead getting these value from the Core class. The Core class then requests the PersistentInface to load these data.
+The MqttSnMessageHandler calls functions on the Core class depend on the received MQTT-SN packets. Some of these packet types change the statuses of a client over the PersistentInterface.
+Every procedure including more then one Core Component's class is executed and managed by the Core class.
+
+\subsubsection{MqttMessageHandlerInterface}
+The MqttMessageHandlerInterface on the other side of the MqttSnMessageHandler manages the MQTT Client's used to connect to the MQTT broker.
+On different platform we need to use differen MQTT Client implementations thus we need this interface as abstraction.
+On Linux and the Arduino Environment we can use the Eclipse Paho MQTT C/C++ client for Embedded platforms\footnote{\url{https://github.com/eclipse/paho.mqtt.embedded-c}}.
+The MqttMessageHandler's tasks is to provide functionality to connect, subscribe, publish to the MQTT broker
+During a loop() function call receive MQTT publishes shall be forwarded to the Core class.
+
+\subsubsection{LoggerInterface}
+The PersistentInterface is only used by the Core class.
+Here the status of the MQTT-SN gateway, MQTT-SN clients and configurations are accessed.
+The PersistentInterface saves and retrieves all information living longer than one loop() call of the SocketInterface, the MqttMessageHandlerInterface or the Core class.
+For example configurations are loaded from configurations files or a new received MQTT publish is saved for a subscribed client.
+We can say the functionality is similar to the well knwo Create Read Update Delete (CRUD) functionality of databases.
+Note that the used persistent technology is not specified by us.
+
+\subsubsection{LoggerInterface}
+The LoggerInterface shall provide functionality to log message with different log levels.
+The Logger is designed to start one log message when start\_log() function is called.
+Then multiple messages as characters can be appended until start\_log() function is called again.
+All characters give to the logger, between two start\_log() function calls, are written as a single log message.
+A single log message and shown in one line with a time stamp when start\_log() was called for the first time.
+The LoggerInterface is directly accessed by all classes and interface.
+
+\subsubsection{System}
+The System interface provides two functionalities: a frequent heartbeat, relative time measurement and a hard exit() function.
+The System interface is only accessed by the Core class.
+It is used to have a timer and a relative time to update the time out values of the MQTT-SN clients.
+Also MQTT-SN advertisment packets are send out regularly using a instance of the System interface.
+%TODO Gateway class erklären fix
+
+\section{Gateway Procedures}\label{sec:gatewayprocedures}
+In the following we describe the so called procedures we identified as functional requirements from the MQTT-SN standard.
+To understand how we named and investigated the procedure we will first describe the prototypical life cycle of a MQTT-SN client.
+We divide the procedure into three types: perform frequently or triggered by a timer, triggered on receiving a MQTT-SN packet or triggered on receiving a MQTT packet.
+\subsection{Client Life Cycle}\label{sec:mqttsnclientlifetime}
+We assume the MQTT-SN client is constrained device.
+We propose the following typical life cycle.
+\begin{itemize}
+\item find a MQTT-SN Gateway via advertisement or searching a gateway
+\item connect to the MQTT-SN gateway with a will message
+\item register topics
+\item subscribe to topics
+\item send and receive publishes
+\item unsubscribe from topics
+\item sleep 
+\item wake up and collect queued publishes
+\item sleep and wake up frequently
+\item power source is empty - will message is published
+\end{itemize}
+The life cycle was created by investigation the MQTT-SN standard followed by creating the tasks.
+
+\subsection{Advertisement Procedure}
+The MQTT-Sn gateway needs to send out MQTT-SN Advertisment packets frequently.
+For this timer triggered procedure we us an instance of the System class.
+The heartbeat (time value) is set to the MQTT-SN advertisement duration value obtained from the PersistentInterface.
+In every loop() call of the Core class we check if the heartbeat elapsed (timer timed out).
+If this is the case we send an MQTT-SN advertisement packet over the MQTTSnMessageHandler.
+
+\subsection{Search Gateway Procedure}
+When a MQTT-SN client broadcasts for a MQTT-SN Gateway and sending a MQTT-SN search gateway packet.
+The MQTTSnMessageHandler receive the search gateway packet and forwards this to the Core class.
+The Core class obtains the gateway id from the PersistentInterface. 
+Then the request is answered with a MQTT-SN gatewy info packet using the MQTTSnMessageHandler.
+
+\subsection{Connect Procedure}
+The connect procedure starts when a MQTT-SN connect packet is received by the MQTTSnMessageHandler.
+There are four different version of this prodecure to handle:
+connect without will message and without clean session
+connect without will message and with clean session
+connect with will message and without clean session
+connect with will message and with clean session
+
+Connecting without will message and without clean session is the simplest.
+A valid MQTT-SN connect packet is answered by a MQTT-SN connect achnowledge packet.
+The MQTT-SN Gateway updates the client's connect duration and sets the client to connected.
+This is processed by the Core class the PersistentInterface and the MqttSnMessageHandler.
+
+Connecting without will message and with clean session is performed as follows.
+A valid MQTT-SN connect packet is answered by a MQTT-SN connect acknowledge packet.
+The MQTT-SN Gateway unsubscribes from all subscriptions saved for the client.
+Then the client's connect duration is updated and his status is set to connected.
+This is processed by the Core class the PersistentInterface, the MqttSnMessageHandler and the MqttMessageHandler.
+
+Connecting with will message and without clean session is performed as follows.
+A valid MQTT-SN connect packet is answered by a MQTT-SN will topic request packet and the client is set to connected.
+The MQTT-SN Gateway then awaits a MQTT-SN will topic packet.
+Receiving any other packet type (from the client) is interpreted as an protocol violation resulting in a disconnect of the client by the gateway.
+A valid MQTT-SN will topic packet is answered by a MQTT-SN will message request packet.
+The will topic is saved for this client.
+The MQTT-SN Gateway then awaits a MQTT-SN will message packet.
+Receiving any other packet type (from the client) is interpreted as an protocol violation resulting in a disconnect of the client by the gateway.
+After receiving the MQTT-SN will message packet and the gateway saves the will message for this client.
+Then the gateway answers with a MQTT-SN connect acknowledge packet, awaits a MQTT-SN ping request packet, and the client is successfully connected.
+
+By accepting only the awaited MQTT-SN packet types protocol violations are identified.
+Protocol violations result in disconnecting the client from the gateway by sending a MQTT-SN disconnect message and set the client to disconnected.
+
+Connecting with will message and with clean session will first perform the version when connecting without will message and with clean session, then the procedure as connecting with will message and without clean session.
+
+\subsection{Register Procedure}
+A MQTT-SN client can register topics (long topic names) via MQTT-SN register message and get a short topic name represented as a two byte topic id back.
+When a MQTT-SN register packet is received by the MqttSnMesageHandler the Core is given the long topic name.
+The Core iterates through the already registered topic list for this client and appends the new topic name if it does not exist.
+If it already exist the existing topic id is taken. If it does not exist the new topic is the  maximum count of topics registered for this client now.
+Then Core uses the MqttSnMesageHandler and answers with a MQTT-SN register acknowledge packet containing the new topic id.
+
+\subsection{Subscribing and Unsubscribing Procedure}
+The subscribing and unsubscribing form topic is managed by a so called internal subscription manangement process.
+We first introduce this process and then the two procedures. 
+\subsubsection{Internal Subscription Management Process}
+In general for subscribing and unsubscribing procedure the gateway manages a counter for each topic at least one client is subscripted to.
+If the so called subscription counter to a topic is at least one, the gateway is subscribed to the topic at the MQTT Broker.
+This means if the client is the first one subscribing to a topic, the Core class will subscribe to this topic over the MQTTMessageHandlerInterface and set the subscription counter of this topic to one using the PersistentInterface.
+Later if other clients subscribe to this topic too, the subscription counter is incremented.
+When a client unsubscribes from one of his topics, the subscription counter is decremented and checked if it reaches zero.
+If it reaches zero the topic is deleted and the Core class will unsubscribe over the MQTTMessageHandlerInterface from the topic. 
+
+\subsubsection{Subscribing procedure}
+The subscription procedure has three different versions: subscribing by topic name, pre-defined topic id or short topic name.
+
+The subscribing procedure is started when a MQTT-SN subscribtion packet is received by the MQTTMessageHandlerInterface.
+
+Subscribing by topic name start internally the same topic name registration like in the register procedure. 
+Then the internal subscription management process is executed.
+Afterwards it is answered by a MQTT-SN subscription acknowledge packet with accepted as return code and the new topic id.
+
+Subscribing by pre-defind topic id will first lookup the topic in the pre-defined topic list and the found topic name is registered via register procedure.
+The topic list is accessed via the PersistentInterface.
+Then the internal subscription management process is executed.
+Afterwards it is answered by a MQTT-SN subscription acknowledge packet with accepted as return code and the new topic id.
+
+Subscribing by short topic name will lookup the short topic name in the client's registered topic list.
+the client's registered topic list is accessed via the PersistentInterface.
+Then the internal subscription management process is executed.
+Afterwards it is answered by a MQTT-SN subscription acknowledge packet with accepted as return code and the topic id.
+
+\subsubsection{Unsubscribing Procedure}
+The unsubscribing procedure is started when a MQTT-SN unsubscribtion packet is received by the MQTTMessageHandlerInterface. 
+
+The unsubscription procedure has three different versions: subscribing by topic name, pre-defined topic id or short topic name.
+For all procedures that processing is nearly similiar. First the topic name is looked up in the client's short topic name list or the pre-defined topic list.
+Then the internal subscription management process is executed.
+Last the gateway replies with a MQTT-SN unsubscribe acknowledge packet. This packet has no return code.
+
+\subsection{Message Queueing Procedure}\label{sec:messagequeueingprocedure}
+The message queuing procedure handles MQTT publishes from the MQTT broker.
+Incoming MQTT publishes from the MQTT Client, given the MqttMessageHandlerInterface are forwarded to the Core class.
+The Core then saves the MQTT publish including the publish options for each MQTT-SN Client subscribed to the MQTT publish's topic persistently (using the PersistentInterface) if client's status is either active, awake or asleep.
+The Core does not save publishes for lost or disconnected clients.
+We always use the lowest QoS comparing the QoS of the incoming MQTT publish and the client subscription QoS to the topic.
+
+This implements a real message queuing, each publish is first saved by the PersistentInterface before it will be published to the MQTT-SN client later.
+The PersistentInterface needs to saved incoming publishes for the each client and keep the order of incoming MQTT publishes.
+
+After the publishes are saved they are retrieved by the Core again during the loop() function.
+For each loop() call the Core iterates over all MQTT-SN clients.
+For each awake or active client a MQTT publish is retrieved from the PersistentInterface.
+If we await from the client a MQTT-SN ping request packet we are able to send the MQTT publish as an MQTT-SN publish packet.
+Depend on the QoS of the publish we either await a MQTT-SN ping request (QoS 0) or MQTT-SN publish acknowledge packet (QoS 1).
+
+Before Sending a MQTT-SN publish packet we check if the topic id is known by the client.
+If the topic id of the topic is not know by the client then we call the register procedure.
+Then we first send a MQTT-SN register packet with a new topic id.
+Then we expect the client to send a MQTT-SN register acknowledge packet back before sending any other message.
+After receiving this we send the queued MQTT-SN publish packet during the next loop() call.
+
+We decided to keep only one message in flight between the MQTT-SN Gateway and the MQTT-SN Client
+This is why we manage the MQTT-SN packets awaited from the client.
+So additional to the MQTT-SN clients status a second status is handled by the PersistentInterface.
+This is necessary to detect failures in the protocol and prevents both clients and gateway from running into an illegal state.
+When no message is in flight between client and gateway we can always expect a MQTT-SN ping request from the client, because this checks the availability of the Gateway and is used in the ping procedure.
+We can send any MQTT-SN packet type to the client when we expect a MQTT-SN ping request packet.
+
+\subsubsection{Publish Procedure}
+The publish procedure handles MQTT-SN publishes from MQTT-SN clients.
+On receiving a MQTT-SN packet by the MqttSnMessageHandler the message is parsed and with the QoS, topic id, retain flag and device\_address of the sender given to the Core class.
+Publishing over the MQTT-SN network is only possible via topic id.
+Then the Core checks in the client's topic list for the topic name.
+If the topic name is found it is given together with the MQTT-SN publish's payload, options to the MqttMessageHandlerInterface.
+The MqttMessageHandlerInterface publishes it as a MQTT publish to the MQTT broker.
+If QoS is one a MQTT-SN publish acknowledge is send back to the MQTT-SN client via the MqttSnMessageHandler.
+
+If the topic name was not found and the QoS is one.
+A MQTT-SN publish acknowledge is send back to the MQTT-SN client via the MqttSnMessageHandler with the return typ rejected invalid topic id.
+Of course no MQTT publish is send.
+
+\subsubsection{Ping Procedure}
+The ping procedure is simple.
+When a client sends a MQTT-SN ping request packet and is active or awake the Gateway reset the client's timeout value to the duration value during the connect procedure.
+
+\subsubsection{Disconnect Procedure}
+When the MqttSnMessageHandler receives a MQTT-SN disconnect packet the Core class is forwarded this information.
+The Core class then set the sending client to disconnected using the PersistentInterface.
+Then a MQTT-SN disconnect packet is send as reply.
+
+When the MqttSnMessageHandler detect a ill-formed MQTT-SN packet the sending client is set to disconnected and a MQTT-SN disconnect packet is send as a reply.
+
+\subsection{Timeout Procedure}
+Timeout values in the Core class are handled as follows.
+For each connected MQTT-SN client a so called timeout value is saved by the PersistentInterface.
+The timeout value counts down from the value of the duration field during MQTT-SN client's connect procedure.
+A MQTT-SN client can reset his timeout value by sending a MQTT-SN ping request packet to the MQTT-SN gateway.
+By Reconnecting and so performing the MQTT-SN connect procedure again a client can update the timeout value.
+
+As a design decision we wanted to reduce updating frequency of the timeout values.
+Every update perform a potential disk I/O operations which are costly.
+So MQTT-SN client's timeout value are only updated for example every 10 seconds.
+To get a time when these 10 seconds pass the Core class uses a instance of the System interface.
+
+The timeout procedure is a timer triggered procedure.
+We use an instance of a System class as heartbeat timer.
+In every loop() call of the Core class we check if the heartbeat elapsed (timer timed out).
+If yes, then we decrease each MQTT-SN client's timeout value by the elapsed time.
+Depend on the MQTT-SN client's connect duration we either use the 10\% timeout tolerance for durations over 60 seconds and 50\% for  less then 60 seconds \cite[p.27]{mqttsnstandard}.
+If a client times out the client's status is set to lost and the will message is send out as a MQTT publish.
+Afterwards the client's subscriptions are removed (including the Internal subscription management process) and the client is deleted completely.
+
+\subsection{Gateway class}
+To provide implementors a skeleton on how to initialize the components we offer the Gateway class.
+As shown in \autoref{img:gatewayclasscollaborationdiagram} the Gateway class holds a member variable to each Core Component.
+Classes are directly created by the Gateway's constructor, interface implementation need to be set by the implementor.
+The begin() function constructs the different Core Component in the correct sequence and then call begin() to each component.
+The loop() function calls the different loop() function in the order: MqttSnMessageHandler, MqttMessageHandle, Core.
+\image{10cm}{GatewayClassCollaborationDiagram.png}{Collaboration Diagram of Gateway class and it's members}{img:gatewayclasscollaborationdiagram}
+%TODO
+
+\subsection{Discussion}
+The advantages of \autoref{sec:coregatewaycomponents} and \autoref{sec:gatewayprocedures} are as follows.
+We can implement the PersistenInterface using only minimal RAM.
+All platform depend parts are interface and the platform independent classes are without a state.
+This increase portability and is designed for change.
+Interface are design so they can run on constrained device and their software environment.
+No real time clock is needed, only a time giving us the milliseconds since startup of the MQTT-SN gateway.
+
+A disadvantage is the runtime behavior of the Core's loop() function.
+It is linear to the count of connected MQTT-SN client in most cases.
+We suggest to provide stress tests to check how this behaves with growing numbers of MQTT-SN client and registrations.

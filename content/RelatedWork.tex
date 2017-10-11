@@ -1,0 +1,151 @@
+\section{Related Work}\label{sec:relatedwork}
+In this section we provide related work and describe why we think a MQTT-SN gateway as IoT middle ware is needed.
+We start with defining IoT device types in \autoref{sec:devicetypes} and introduce the application layer IoT messaging standards HTTP, MQTT and MQTT-SN in \autoref{sec:iotmessagingstandard}. Afterwards we compare them and justify why we think MQTT-SN is a good choice as IoT middle ware for constrained IoT devices.
+Afterwards in \autoref{sec:mqttsnarchitecture} we introduce the typical MQTT-SN architecture.
+
+\subsection{IoT Device Types}\label{sec:devicetypes}
+For the first time the Eclipse IoT Developer Survey asked in 2017 which programming languages and operating systems are not even used in general IoT device but for constrained devices, IoT gateways and IoT clouds, too\cite{eclipseiotdevelopersurveyresults}.
+One can see that Linux (44.1\%) and No OS/Bare-metal (27.\%) are the top 2 choices.
+In the following section we define three categories of device types namely: constrained, semi-constrained and unconstrained devices.
+\subsubsection{Constrained Devices}\label{sec:constraineddevice}
+We define a constrained device similar to so called constrained nodes of RFC7228\cite{RFC7228}.
+Characteristics of a constrained device is limited ROM/Flash, RAM size, limited processing power and a endless power source.
+For example a Arduino Uno\footnote{\url{https://store.arduino.cc/arduino-uno-rev3}, accessed: 2017-10-08} powered by USB-Power bank is a constrained device.
+Adding a Arduino Ethernet Shield 2\footnote{\url{https://store.arduino.cc/usa/arduino-ethernet-shield-2}, accessed: 2017-10-08} makes it to a constrained node after RFC7228.
+Of course a device can have different energy harvesting modules.
+A solar cell can refresh the energy source. 
+But even this leads in most cases to a limit device lifetime.
+\subsubsection{Semi-Constrained Devices}\label{sec:semiconstraineddevice}
+A semi-constrained device is the same as a constrained devies defined in \autoref{sec:constraineddevice}.
+The only difference is that the semi-constrained device is on the grid meaning it has a infinite power source.
+\subsubsection{Unconstrained Devices}\label{sec:unconstraineddevice}
+A unconstrained device differs from the constrained and semi-constrained device by his greater persistent memory (HDD), RAM size and less or nearly unlimited processing power as well as infinite power source.
+A unconstrained device can be a Raspberry Pi 3\footnote{\url{https://www.raspberrypi.org/products/raspberry-pi-3-model-b/}, accessed: 2017-10-08}, a normal personal computer like our development environment introduced in \autoref{sec:developmentenvironment}  or even a non physical computer like a rented Virtual Machine (VM) or Docket container in the cloud\footnote{\url{https://blog.docker.com/2016/02/containers-as-a-service-caas/}, accessed 2017-10-08}.
+
+\subsection{IoT Messaging Standards}\label{sec:iotmessagingstandard}
+The Eclipse IoT Developer Survey 2017 shows that the most used messaging standards in the IoT environment are HTTP (60.1\%) and MQTT (54.7\%)\footnote{The third place is CoAP with 26.7\% and all others are blow 20\%\cite[p.24]{eclipseiotdevelopersurveyresults}}\cite[p.24]{eclipseiotdevelopersurveyresults}.
+In the following section we give a short overview over these two standards and MQTT-SN.
+Afterwards we compare these three standards and justify why MQTT-SN is well suited for constrained devices and as IoT middle ware.
+\subsubsection{HTTP}
+The Hypertext Transport Protocol (HTTP) is a application-layer protocol\cite[p.98]{computernetworking} defined in RFC2616\cite{RFC2616}.
+HTTP uses the client-server pattern as shown in \autoref{img:httprequestresponsebehaviour}.
+The client (PC running Internet Explorer) requests a resource addressed by a Uniform Resource Identifier (URI) via HTTP request message form the server (Server running Apache Web server).
+The client replies with the resources via a HTTP response message.
+\image{8cm}{HTTPRequestResponseBehaviour.png}{HTTP request-response behaviors\cite[p.99]{computernetworking}}{img:httprequestresponsebehaviour}
+HTTP has some disadvantages when using it on constrained devices.
+First HTTP is based on TCP so we have a lot of layer from the application layer to the physical layer adding metadata. Second the whole ISO/OSI layer stack is used and so message can be fragmented for the transmission process. The receiver needs to reassemble these fragmentations.. Both disadvantages consumes lot RAM and energy which is not always available especially for battery powered constrained devices.
+\subsubsection{MQTT}\label{sec:mqtt}
+Message Queuing Telemetry Transport (MQTT) is a standardized in the version 3.1.1 by the OASIS Message Queuing Telemetry Transport (MQTT) TC Technical Committee\cite{mqttv311}. "It is light weight, open, simple, and designed so as to be easy to implement"\cite{mqttv311}.
+"The protocol runs over TCP/IP, or over other network protocols that provide ordered, lossless, bi-directional connections"\cite{mqttv311}.
+"The publish/subscribe pattern (pub/sub) is an alternative to the traditional client-server model, where a client communicates directly with an endpoint"\cite{mqttessentialspart2}.
+
+\image{10cm}{MQTTPubSub.png}{MQTT publish-subscribe example\cite{mqttessentialspart2}}{img:mqttpubsubexample}
+In \autoref{img:mqttpubsubexample} one can see simple-publish subscribe example.
+The three MQTT Client namely temperature sensor, laptop and mobile device are connected to the MQTT broker.
+First laptop and mobile device subscribe to the topic "temp".
+Then the temperature sensor publishes a message to the topic "temp" with the payload "21 C".
+Both subscribed clients laptop and mobile device receive now on  the payload "21 C" on the topic "temp".
+This provide a data centric data model in contrast to the communication centric client-server model of HTTP.
+
+Further MQTT provides three Qualities of Service (QoS) methods shown in \autoref{img:mqttqos}.
+The different QoS behave like followed:
+\begin{itemize}
+\item QoS 0 (at most once) - Sends only the publish message. It has the same reliability of the underlying TCP layer.
+\item QoS 1 (at least once) - Sends the publish message and awaits a puback as reply. It is ensured that the message is delivered at least once.
+\item QoS 2 (exactly once) - Sends the publish message and expects the messageflow of pubrec, pubrel and pubcomp. It is ensured that the message is delivered exactly once.
+\end{itemize}
+\image{13cm}{MQTTQoS.png}{MQTT Quality of Service (QoS) methods\cite{Ju:2013:CAM:2496021.2496295}}{img:mqttqos}
+
+%TODO
+\subsubsection{MQTT-SN}\label{sec:mqttsn}
+Message Queuing Telemetry Transport for Sensor Networks (MQTT-SN) is a standard from International Business Machines Corporation (IBM).
+It is designed for low cost Wireless Sensor Network (WSN)\cite{mqttsnstandard}.
+"MQTT-SN can be considered as a version of MQTT"\cite[p.4]{mqttsnstandard} which we have described in \autoref{sec:mqtt}.
+But MQTT-SN has some advantages in contrast to MQTT especially for constrained devices.
+MQTT-SN connect procedure uses three different MQTT-SN packets namely connect, will topic and will message.
+The will topic and will message are optional.
+MQTT uses one connect packet.
+MQTT-SN client's publish to so called short topic names which is a two bytes long topic id.
+These short topic can be registered client wise at the MQTT-SN gateway via a registration procedure.
+Additionally to short topic names it is able to pre-defined short topic names for each MQTT-SN gateway.
+These pre-defined topic id are accessible by every client and so even the registration procedure is optional.
+These three points reduce the message exchanged and so reduce power consumption.
+MQTT-SN clients can discover MQTT-SN gateways, no fixed encoded MQTT Broker is needed.
+Also MQTT-SN clients can publish with QoS -1 without even connecting to a gateway.
+And last the biggest advantage is that MQTT-SN support so called sleeping devices.
+During this state a MQTT-SN client can be inaccessible via the transmission protocol.
+The gateway queues incoming MQTT publishes for the sleeping client.
+During the sleep procedure the device can go to a power down mode and save a lot of energy.
+Then the MQTT-SN client can wake up and request the buffered publishes\cite{mqttsnstandard}.
+
+\subsection{Comparing HTTP, MQTT and MQTT-SN}\label{sec:comparinghttpmqttmqttsn}
+To illustrate why we chose MQTT-SN over HTTP and MQTT we provide a small example comparing the bytes needed by all protocols in the following section.
+For each layer of the TCP/IP Model we provide the minimum packet sizes needed and compare them as shown in \autoref{img:tcpipmodelayerswithminimalbytes}.
+All TCP/IP Model layers under the application-layer summarized are a so called tranmsission protocols networking technology.
+A overview over network types and technologies for transmission protocols are given by \cite{citeulike:2134830}, \cite{DinushaRathnayaka2012}, \cite{s120911734} and \cite{wirelesshomeautomationnetworks}.
+\image{14cm}{TCPIPModelLayerWithLayerBytes.png}{TCP/IP Model Layer including the minimal length of the different layers and transmission protocols in bytes}{img:tcpipmodelayerswithminimalbytes}
+\autoref{img:tcpipmodelayerswithminimalbytes} provides a summary of this comparison example in \autoref{sec:applicationlayercomparison}.
+\subsubsection{Application-Layer Comparison of IoT Messaging Standards}\label{sec:applicationlayercomparison}
+First we compare the minimum application-layer packet sizes.
+For HTTP and MQTT we assume a TCP connection is already established to the server or MQTT Broker.
+We further assume a MQTT Client is already connected to a MQTT broker.
+For MQTT-SN we assume a MQTT-SN Client is already connected to a MQTT-SN gateway.
+Now we compare the minimal packet size of data transfer with value.
+For HTTP this is sending a HTTP GET request to the server. For MQTT and MQTT-SN it is sending a publish packet with QoS 0.
+HTTP need a minimum of 20 bytes\footnote{\url{https://stackoverflow.com/questions/9233316/what-is-the-smallest-possible-http-and-https-data-request}, accessed: 2017-10-08}, MQTT needs 8 bytes\footnote{message type and flags/QoS/Retain (1 byte) + remaining length (1 byte) + topic name length (2 byte) + topic name e.g. "a" (1 byte) + mesage id (2 bytes) + payload (1 byte) = 8 bytes} and MQTT-SN 8 bytes\footnote{Lenght (1 byte) + MsgType (1 byte) + Flags (1 bytes) + TopicId (2 bytes) + MsgId (2 bytes) + Data (1 byte) = 8 bytes}, too.
+When every byte counts MQTT and MQTT-SN outperform HTTP on application-layer.
+\subsubsection{Transmission Protocol Comparison}
+Next we do not compare HTTP any more because it is already outperformed as shown in \autoref{sec:applicationlayercomparison}.
+First we assume MQTT uses TCP and MQTT-SN uses UDP.
+Both are connected to their endpoints via Ethernet.
+%As already calculate in \autoref{sec:applicationlayercomparison} both packet lengths are 8 bytes.
+A empty TCP datagram needs 44 bytes and a empty UDP datagram 32 bytes\footnote{\url{https://stackoverflow.com/questions/1846077/size-of-empty-udp-and-tcp-packet}, accessed: 2017-10-08} including the IPv4 header without any options.
+This means MQTT-SN with UDP outperforms MQTT with TCP by 12 bytes.
+Now we assume MQTT-SN runs on Bluetooth 4.0 BLE and MQTT over WiFi (802.11).
+A WiFi generic data frame without payload is 34 bytes long\footnote{\url{https://www.safaribooksonline.com/library/view/80211-wireless-networks/0596100523/ch04.html\#}, accessed: 2017-10-08}.
+MQTT-SN using BLE's ATT notifications datagram and needs 13 bytes without payload.
+The difference between WiFi (802.11) and Bluetooth 4.0 is roughly 21 bytes for BLE\cite{howlowenergyisblelowenergy}.
+Siekkinen et al. \cite{howlowenergyisblelowenergy} strengthens the result of our small example by showing that BLE has a "very energy efficient in terms of number of bytes transferred per Joule spent"\cite[p.1]{howlowenergyisblelowenergy}.
+
+One counts together all layer we compared, then we need 82 bytes for the combination of MQTT, TCP and WiFi and 21 bytes for the combiantion of MQTT-SN and BLE\footnote{Note that it cannot be said that MQTT-SN outperforms MQTT by 61 bytes (74\%) because the example is too limited. But it shows a strong tendency.}.
+
+\subsubsection{Result of Comparison}
+As we showed MQTT-SN outperforms HTTP and MQTT when we use other transmission protocols than TCP/UDP.
+But of course using other tranmission protocols like BLE we have a lower data rate.
+This was completely ignore in our comparison because we assume that constrained devices as MQTT-SN client exchange slightly less data then semi-constrained or unconstrained devices.
+But not only for constrained devices even for semi-constrained and unconstrained devices MQTT-SN can still be an opportunity using UDP.
+They can use the advantages of MQTT-SN compared to MQTT like described in \autoref{sec:mqttsn}.
+
+These are some reason we think MQTT-SN is a good choice for a IoT middleware for constrained IoT devices.
+But most import reason why we think MQTT-SN is well suited for constrained devices is that it support more energy saving options on application-layer level with sleeping clients, that we can use event non TCP/IP based networking technologies and last we keep the same well understood publish-subscribe paradigm for all device types.
+
+Overall we say it would be a benefit to implement a MQTT-SN gateway which can run on cheap hardware of a semi-constrained device.
+
+\subsection{MQTT-SN Architecture}\label{sec:mqttsnarchitecture}
+An example architecture is shown in \autoref{img:mqttsnarchitecture}.
+The MQTT-SN standard know three kind of MQTT-SN components.
+Client, gateways and forwarder. As shown in \autoref{img:mqttsnarchitecture} MQTT-SN clients are connected to MQTT-SN gateways via the MQTT-SN protocol.
+The MQTT-SN gateway is connected to a MQTT Broker via MQTT.
+\image{10cm}{MQTTSNArchitecture.png}{MQTT-SN Architecture\cite{mqttsnstandard}}{img:mqttsnarchitecture}
+Additionally MQTT-SN client can be connected via a MQTT-SN forwarder encapsulating MQTT-SN packets into MQTT-SN forwarder encapsulation packets. The MQTT-SN encapsulates the received MQTT-SN messages and forward the MQTT-SN forwarder. It encapsulation packets send to the MQTT-SN gateway and expose packets send to the MQTT-SN client.
+\autoref{img:mqttsnarchitecture} proposes that a MQTT-SN gateway must not necessarily be and independent device.
+It can also be located at the same device as the MQTT Broker\cite{mqttsnstandard}.
+\subsubsection{MQTT-SN Gateway Architectures}\label{sec:mqttsngatewayarchitectures}
+The MQTT-SN standard propose two kind of gateway architectures: transparent and aggregating gateways.
+As shown in \autoref{img:transparentandaggregatinggateways} a transparent gateway maintains one MQTT connection to the MQTT Broker for each MQTT-SN client connected and provide syntax translations only.
+The benefit of the transparent gateway is that it is easier to implement.
+But large scale MQTT-SN networks may brake the maximum limit of the MQTT Broker's active MQTT connection count.
+Or the MQTT-SN gatway is a semi-constrained device which cannot maintain a lot MQTT connections.
+In this cases a aggregating gateway scales better.
+The aggregating gateway maintains only one MQTT connection to the MQTT Broker and multiple connections to the MQTT clients.
+\image{13cm}{TransparendAndAggregatingGateways.png}{MQTT-SN gateways architecture - Transparent and Aggregating Gateways\cite{mqttsnstandard}}{img:transparentandaggregatinggateways}
+\subsubsection{MQTT-SN Components, Transmission Protocols and Device Types}
+\autoref{img:mqttsntransmissionprotocolsanddevicetypes} combines the knowledge of the most used IoT hardware architectures and connectivity protocols from the Eclipse IoT Developer Survey's\cite{eclipseiotdevelopersurveyresults} with the MQTT-SN architecture proposed in the MQTT-SN standard\cite{mqttsnstandard}. We added our knowledge of device types.
+Once can now easily see which device type is used for which purpose.
+It shows that a typical MQTT-SN client is a constrained device without a operating system or a fixed power source (off the grid).
+As MQTT-SN transmission protocol we use either WiFi (UDP), ZigBee, Bluetooth 4.0, or LoRa.
+The MQTT-SN gateway runs on a semi-constrained device connected to a reliable power source (on the grid).
+As usual MQTT runs over TCP/IP networks and uses WiFi (TCP), Ethernet or maybe 5G in the near future.
+The MQTT Broker is a unconstrained device like an cloud server or a local Raspberry Pi.
+\image{13cm}{MQTTSNTransmissionProtocolsAndDeviceTypes.png}{MQTT-SN components the corresponding Device Type and Transmittion Protocols}{img:mqttsntransmissionprotocolsanddevicetypes}
+%TODO: constrained devices are typicall MQTT-SN client described in \autoref{sec:mqttsnarchitecture}

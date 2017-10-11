@@ -1,0 +1,33 @@
+\section{Introduction}\label{sec:introduction}
+"By 2020, IoT technology will be in 95\% of electronics for new product designs"\cite{gartnertop10predicitions}.
+This means  Internet of Things (IoT) devices will also build with any kind of consumer hardware technology available.
+Additionally IoT devices become ubiquitous from small ones like sensors/actuators, smart wearables, smart meters, smart phones, connected vehicles, smart TV, smart furniture\footnote{smart furnitures like smart fridge, toaster and any other you can imagine} and grow to large scale networks over smart homes, smart house infrastructure to smart cities.
+We need to bring connectivity into these many different device sizes and potential application areas.
+Not only the size of the hardware but also the cost of single device will becomes interesting too.
+IoT device vendors are always interested in cheaper devices.
+This cost reduction becomes important especially when increasing numbers of devices benefit from.
+But smaller and more constrained IoT devices are not only cheaper.
+In a lot of cases the smallest, most constrained devices run only with battery or energy harvesting technologies.
+For example smart wearables, self sustaining sensors/actuators.
+Often a single chip handles the whole application logic and data transmission.
+For example a single Bluetooth chip is used in a smart watch to transmit data to a smart phone.
+The chip also react and shows the user necessary data of the application use case.
+As a result more energy saving wireless protocols are developed like ZigBee\footnote{\url{http://www.zigbee.org/}}, Bluetooth\footnote{\url{https://www.bluetooth.com/}} or LoRa\footnote{\url{https://www.lora-alliance.org/}}.
+
+We assume in the future, IoT devices use a lot of different networking technologies which are more energy efficient than TCP/IP based networks.
+But traditional IoT messaging standards like HTTP and MQTT\cite{eclipseiotdevelopersurveyresults} provides well understood paradigms.
+
+To mix the best of two worlds the well understood publish-subscribe paradigm and energy efficient networking technologies should be used together.
+We suggest MQTT-SN as a non connection oriented protocol which is easy to implement for most constrained devices.
+To connect traditional IoT messaging standards and application-layer protocols we provide a prototypical MQTT-SN gateway implementation. During the implementation we want to learn and review which problems we needed and will need to solve for future developments and which problems we already solved.
+ 
+This project report is structured as follows.
+In \autoref{sec:relatedwork} we give a definition of different device types and provide a overview over the two most used messaging protocols HTTP, MQTT and MQTT-SN.
+Then we justify why we think MQTT-SN is well suited for so called constrained devices.
+Afterwards the MQTT-SN architecture is introduces.
+In \autoref{sec:nonfunctionallimitationsandrequirements} we provide the target hardware and software environment for our project, as well as define non-functional requirements and limitations.
+The MQTT-SN gateway enviroment independent Core Components are introduces in \autoref{sec:coregatewaycomponents} and implement on Linux in \autoref{sec:linuxgatewayimplementation}. Through a example MQTT-SN client life cycle MQTT-SN procedures we identified gateways procedures.
+Then we provide a Linux gateway implementation for the Core Components in \autoref{sec:linuxgatewayimplementation}. This implementation can also used with minor changes on the target hardware and software environment.
+Next in \autoref{sec:unitandregressiontesting} we implemented a automated unit and regression test environment.
+Afterwards in \autoref{sec:BluetoothLowEnergySocket} we exchange the UDP socket implementation by a Bluetooth 4.0 Low Energy implementation.
+Last we conclude our project and provide suggestions for future work.

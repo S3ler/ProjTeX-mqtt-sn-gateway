@@ -1,0 +1,176 @@
+\section{Linux Gateway Implementation}\label{sec:linuxgatewayimplementation}
+In the following section we will introduce the linux gateway\footnote{\url{https://github.com/S3ler/linux-mqtt-sn-gateway}} implementation of the MQTT-SN gateway's Core Gateway Components propose in \autoref{sec:coregatewaycomponents}.
+We provide hardware and software depend implementations of the Core Components interfaces.
+First we introduce the development environment, then we give an overview over the implemented components and discuss their implementations details.
+At the end of the section we revisit our implementation and reflect it regarding to portability.
+
+\subsection{Development Environment}\label{sec:developmentenvironment}
+As already mentioned in \autoref{sec:nonfunctionallimitationsandrequirements} we do not directly develop for the target environments.
+As operating system we use Ubuntu 16.04\footnote{Ubuntu 16.04 Kernel 4.10.0-35-generic x86\_64 build SMP Wed Sep 13 09:02:42 UTC 2017} with a 64 Bit Processor\footnote{64 bit AMD Phenom(tm) II X4 960T Processor}, 8 GB RAM\footnote{2x 4GiB DIMM DDR3 Synchron 1066 MHz} and a 240 GB SSD\footnote{240GB Crucial\_CT240M50}.
+For a full hardware overview see appendix \autoref{sec:developmentenvironmenthardware}.
+The used integrated development environment (IDE) is Clion2017\footnote{Clion 2017.2.1 Build\#CL-172.3544.40, build on August 2, 2017}, as build tool we use CMake\footnote{CMake version 3.6} and gcc\footnote{gcc version 5.4.0 20160609 (Ubuntu 5.4.0-6ubuntu1~16.04.4)} with the C++11 standard\cite{ISO:2012:III} as compiler.
+
+\subsection{Linux Component Implementations}\label{sec:linxcomponentimplementations}
+In this section we describe the interface implemented for the introduced development environment. \autoref{img:coreclinuxgatewaycomponentsclassdiagram}
+extends \autoref{img:corecomponentsclassdiagram} with the implementing classes namely: LinuxUdpSocket, PahoMqttMessagehandler, LinuxLogger, LinuxPersistent, LinuxSystem.
+\image{14cm}{LinuxClassDiagram.png}{Enviroment depend implementations of interfaces of the linux gateway.}{img:coreclinuxgatewaycomponentsclassdiagram}
+LinuxLogger, LinuxPersistent and LinuxSystem use the Arduino and SD classes from the so called arduino linux abstraction library described in \autoref{sec:arduinolinuxabstraction}.
+In the following we first describe implementation details of implementing classes and then we discuss the result.
+
+\subsection{LinuxUdpSocket}\label{sec:linuxudpsocket}
+The LinuxUdpSocket implements the SocketInterface and uses UDP as transmission protocol.
+It implements the function of the SocketInterface as shown in \autoref{img:coreclinuxgatewaycomponentsclassdiagram}.
+The begin() function of the LinuxUdpSocket initializes two UDP sockets.
+The first socket is for the message directly addresses to the MQTT-SN gateway (in the following called gateway socket) and the second socket is a IP mutlicast socket (in the followng called broadcast socket) for broadcasting MQTT-SN advertisment, MQTT-SN gateway info packets and receiving MQTT-SN search gateway packets from MQTT-SN clients as well as MQTT-SN advertisment packets from other MQTT-SN Gateways.
+The gateway socket is fixed coded to port 8888\footnote{we use \#define PORT 8888} and the broadcast socket uses the fixed coded broadcast group 224.0.0.0 on port 1234.
+For a prototype this looked easy enough but we suggest to enhance the LinuxUdpSocket class in a later version by loading the ports and broadcast group as configurations during gateway's startup.
+The maximum message length is fixed coded set to 255 bytes.
+
+Each loop() call checks if the gateway sockets contain a datagram with a short timeout of 300 ms.
+If a datagram is available the sender IP address including the port number is extracted and converted to a device\_address.
+Then the receiveData() function on the MqttSnMessageHandler is called with the datagram's payload and the device\_address. The datagram's payload is interpreted as one MQTT-SN packet. The MQTT-SN standard explicitly not support message fragmentation and reassembly.
+
+Sending datagrams is implement by converting the bytes of the given device\_address back to an IP including port number and then send a datagram over the gateway or broadcast port back.
+The getAddress() and getBroadcastAddress() functions of the SocketInterface are implemented by retrieving first the socket's IP address including port, then converting it to a device\_address and return it to the callee.
+
+Problems appeared during the automatic the unit testing of the MQTT-SN gateway.
+The operating system forbids to reuse the broadcast socket's port over multiple processes.
+We need to add the socket option SO\_REUSEADDR fixing this problem.
+Then multiple processes could access the same port.
+\subsection{PahoMqttMessageHandler}\label{sec:pahomqttmessagehandler}
+The PahoMqttMessageHandler class implements the MqttMessageHandler as shown in \autoref{img:coreclinuxgatewaycomponentsclassdiagram}.
+The implementation uses an instance of the Paho Embedded MQTT C/C++ Client Libraries\cite{PahoMqttEmbbeddedcClient}.
+The PahoMqttMessageHandler begin() function initializes the instance of the Paho MQTT C Client on the heap using the linux IPStack\footnote{\url{https://github.com/eclipse/paho.mqtt.embedded-c/blob/master/MQTTClient/src/linux/linux.cpp}, accessed: 2017-10-07}.
+Of course we break with the non-requirement to use stack only memory allocation. but the Paho MQTT C Client is allocated on the heap.
+This is acceptable as long as only one instance is used during the whole runtime of the gateway and the ownership of the instance is never transfered.
+The PahoMqttMessageHandler does this.
+The implementation only maps the MqttMessageHandler functions to Paho Embedded MQTT C/C++ Client functions.
+
+The loop() function is applied by first waiting 300ms for a message on the TCP socket.
+If bytes are buffered in the socket and it is a MQTT publish message the PahoMqttMessageHandler calls Core's publish() function and the publish will be handled like described in \autoref{sec:messagequeueingprocedure}.
+Because we need to call the Paho MQTT C Client's yield function frequently and we cannot expect the user of the LinuxGateway class to use start\_loop() immediately after calling begin().
+Thus we decided to connect to the MQTT Broker, when loop() is called on the PahoMqttMessageHandler for the first time.
+The MQTT Client and MQTT Broker configuration is requested from the Core class which obtains it from the PersistentInterface.
+
+We encountered a problem during programming the PahoMqttMessageHandler with the Paho MQTT C Client.
+The Paho MQTT C Client is written in C and we had to give a global callback function which will be called when a MQTT publish arrives.
+We solved it by creating a global pointer to a MqttMessageHandlerInterface interface.
+This global pointer is initialized during the PahoMqttMessageHandler's begin() function.
+A second global messageArrived() function calls this global pointer's receive\_publish() function.
+The global messageArrived() function was given to the Paho MQTT C Client as MQTT publish arrived callback.
+\subsection{Arduino Linux Abstraction}\label{sec:arduinolinuxabstraction}
+The purpose of the arduino linux abstraction library is to program the linux gateway to an interface similar available in the Arduino Environment.
+These are some global functions and the SD Card Library of the Arduino Environment, as already mentioned in \autoref{subsec:targetsoftwareenvironment} and \autoref{sec:limitationsandrequirements} are used.
+As shown in \autoref{img:coreclinuxgatewaycomponentsclassdiagram} the Arduino class is used by the LinuxLogger and the LinuxSystem.
+The SD class is used by the LinuxPersistent.
+In the following we describe the implementation details of the Arduino and SD class.
+Note that we do not implement all functions of the Arduino Environment only these we needed.
+\subsubsection{Arduino}
+The Arduino class implements the millis()\footnote{\url{https://www.arduino.cc/en/Reference/Millis}, accessed: 2017-10-07}, delay()\footnote{\url{https://www.arduino.cc/en/Reference/Delay}, accessed: 2017-10-07} and various Serial print()\footnote{\url{https://www.arduino.cc/en/Serial/Print}, accessed: 2017-10-07} and println()\footnote{\url{https://www.arduino.cc/en/Serial/Println}, accessed: 2017-10-07} functions from the Arduino Environment.
+
+We used std::chrono from the Standard C++ Library\footnote{\url{http://www.cplusplus.com/reference/chrono/}, accessed: 2017-10-07} to implement the global millis() function.
+The millis() initializes a timerValue with its first call, similar to starting the Timer in the ArduinoEnvironment.
+The timerValue is first set to the operating system current time point via now() function\footnote{\url{http://www.cplusplus.com/reference/chrono/system_clock/now/}, accessed: 2017-10-07}.
+Whenever millis() is called again the difference between the current time pint and the timerValue is returned.
+
+The delay() function used posix nanosleep() function from time.h\footnote{\url{http://man7.org/linux/man-pages/man2/nanosleep.2.html}, accessed: 2017-10-07} to suspend the process for the given milliseconds.
+
+Serial output and the different print() and println() functions map these function to std::cout stream of the C++ Standard Library\footnote{\url{http://www.cplusplus.com/reference/iostream/cout/}, accessed: 2017-10-07} at the standard output stream.
+The output commands are provide by the internal SerialLinux class.
+\subsubsection{SD}
+The SD class maps the C++ Standard Library fstream functions\footnote{\url{http://www.cplusplus.com/reference/fstream/fstream/?kw=fstream}, accessed: 2017-10-07} and C Standard Library stdio functions\footnote{\url{http://www.cplusplus.com/reference/cstdio/remove/}, accessed: 2017-10-07} to the Arduino SD Library\footnote{\url{https://www.arduino.cc/en/Reference/SD}, accessed: 2017-10-07}.
+The arduino SD Library uses two classes namely the SD and the File class.
+The SD class provide the functions begin(), open(), exists() and remove().
+We add the function setRootPath() to set the path to a virtual root file directory on the file system.
+With the begin() function the SS Pin of the SPI interface is set.
+This has no functionality in the developlment environment.
+% but using the standard library to access the file system this function only for compatibility reasons there without functionality.
+The open() function creates and returns a File class mapping the C++ Standard Library fstream's file read and write functions to.
+To remove() a file we use std::remove() function from the C Standard Library.
+Last the exists() function uses the stat() function\footnote{\url{https://stackoverflow.com/questions/230062/whats-the-best-way-to-check-if-a-file-exists-in-c-cross-platform}, accessed: 2017-10-07} to check if a file exists.
+
+Note that es SD Library is built on a sdfatlib.
+This means not all functionality of modern file system are provided.
+The most crucial is that it only supports 8.3 names for files\cite{83filenames}\cite{arduinosdlibrary}.
+
+\subsection{LinuxLogger}
+The LinuxLogger implements the LoggerInterface as shown in \autoref{img:coreclinuxgatewaycomponentsclassdiagram}.
+When using this class on a non ArduinoEnvironment a SerialLinux class from the arduino linux abstraction library is used to write log message send them to the standard output.
+At the beginning of each log message the current milliseconds are written using the global millis() function from the arduino linux abstraction library.
+We convert the milliseconds from the millis() function to characters using sprintf(). Fortunately sprintf() using integer numbers is supported on the Arduino Environment. 
+As a result the whole LinuxLogger is ready to use on an Arduino Board\footnote{\url{https://playground.arduino.cc/Main/Printf}, accessed: 2017-10-07}.
+%TODO maybe ad a log example
+\subsection{LinuxPersistent}
+The LinuxPersistent class implement the PersistentInterface as shown in \autoref{img:coreclinuxgatewaycomponentsclassdiagram}.
+For using the file system like a local SD card the arduino linux abstraction layer's SD and File classes are used for file manipulations as wells a read/write operations.
+
+The LinuxPersistent class manages some global and client depend files on the file system.
+Function of the LinuxPersistent interface implementing the PersistentInterface perform CRUD on these fieles.
+\subsubsection{MQTT Configuration}\label{subsec:mqttconfiguration}
+The MQTT Client and MQTT Broker configuration is loaded by the LinuxPersistent class from a simple human readable MQTT.CON which is expected to be located next to the MQTT-SN gateway's binaries.
+The configuration file is a simple one key value per line file. An example file is provided in the appendix \autoref{sec:examplemqttconfile}.
+The three non optional keys are brokeraddress and brokerport for the MQTT broker to be connected to by the MqttMessageHandler interface, clientid for the client id to be used by the MqttMessageHandler interface.
+The four optional keys are willtopic, willmessage, willqos and willretain for a MQTT broker connection including a MQTT will message. Note that all four keys are needed to be defined or no will message will be used.
+\subsubsection{MQTT-SN Configuration}
+The MQTT-SN configration is a simple file called MQTTSN.CON with three key value pairs similiar to \autoref{subsec:mqttconfiguration}.
+The keys are gatewayid, timout and advertise where gatewayid is the gateway id used by the MQTT-SN adverstiment and MQTT-NS gateway info packet,
+time out is how often the gateway updates all MQTT-Sn client's timeout value and advertise is the advertisment duration between sending two MQTT-SN advertisment packets.
+These value are loaded and used by the Core class.
+\subsubsection{Pre-Defined Topic List}
+The pre-defined topic list is saved in simple human readable file called TOPICS.PRE.
+Each line contains a key value pair ( space separated ).
+Each line contains topic id as key and topic name as value
+The TOPICS.PRE file is acces everytime the Core class request a pre-defined topic name.
+\subsubsection{Gateway Subscription List}
+The gateway subscription list is a binary encoded file named MQTT.SUB.
+For each topic the gateway is subscribed at the MQTT-Broker it contains a list entry.
+Such a list entry can be seen in appendix \autoref{sec:gatewaysubscriptionlistentry}.
+\subsubsection{Gateway Client List}
+The gateway client list is a binary encoded file named CLIENT containing a gateway client list entry (see appendix \label{sec:gatewayclientlistentry}) for each connected or disconnected MQTT-SN client.
+The gateway client list entry contains values updated when iterating over all connected MQTT-SN client like the timeout value field and the duration field.
+It also contains a so called file\_number.
+Every device gets a file\_number on connecting and four files are created.
+The *.SUB, *.REG, *.WIL and *.PUB file (where * is replace by the file\_number of the client) is a data holder for the client.
+The *.WIL file contains one will message entry (see appendix \autoref{sec:willmessageentry}).
+The *.SUB, *.REG contain one list each namely the client's subscription list (see appendix \autoref{sec:clientsubscriptionlistentry}) and the registration list (see appendix \autoref{sec:clientregistrationlistentry}).
+The last file, the  *.PUB containing the queue MQTT Messages for a client.
+\subsection{LinuxSystem}
+The LinuxSystem implements the System interface as shown in \autoref{img:coreclinuxgatewaycomponentsclassdiagram}.
+The LinuxSystem measures the heartbeat status by comparing the elapsed time using an internal timer value set when the difference is greater than the heartbeat period.
+To get a global timer value the class uses the arduino linux abstraction library Arduino millis() function.
+The sleep() function is implemented by mapping it to the arduino linux abstraction library Arduino delay() function.
+\subsection{LinuxGateway}
+As shown in \autoref{img:linuxgatewayinheritgraph} the LinuxGateway clas inherit from the Gateway class on extends its functionality. In the following section we describe how we adept the Gateway class to our development environment to let the LinuxGateway run.
+\image{12cm}{class_linux_gateway__coll__graph}{Collaboration diagram of the LinuxGateway class inherit from the Gateway class}{img:linuxgatewayinheritgraph}
+First we create instances of the concrete Core Component's interface implementation described in \autoref{sec:linxcomponentimplementations} as member variables of the LinuxGateway class.
+These implementations are namely: LinuxUdpSocket, PahoMqttMessageHandler, LinuxPersistent, LinuxLogger and LinuxSystem.
+We added a setRootPath() function to the LinuxGateway mapping the argument to the LinuxPersistent's setRootPath() function.
+Then we override the begin() function, added the log message "Linux MQTT-SN Gateway version 0.0.1a starting", called from the Gateway class the different setter function with the member variables and last called the Gateway's begin() function.
+Gateway's begin() function assembles the MQTT-SN gateway class and interface including their setted implementation and calls begin() to all components.
+On an Arduino we would use Arduino's loop() function\footnote{\url{https://www.arduino.cc/en/Reference/Loop}, accessed: 2017-10-07} to permanently call Gateway's loop() function and call the loop() functions of all subcomponents.
+If we create a main function and call the LinuxGateway's loop() function in a while-true-loop we get the same behavior.
+
+We decided to enhance the LinuxGateway and make it embeddable into other application.
+So we add two new members and three new functions namely start\_loop(), dispatch\_loop() and stop\_loop().
+The new members are a std::thread\footnote{\url{http://en.cppreference.com/w/cpp/thread/thread}, accessed: 2017-10-07} and a std::atomic<bool>\footnote{\url{http://en.cppreference.com/w/cpp/atomic/atomic}, accessed: 2017-10-07} variable.
+The start\_loop() function starts the internal LinuxGateway std::thread with the dispatch\_loop() function. As long as stop\_loop() is not called the thread will continously call LinuxGateway's loop() function.
+
+To show how easily the Linux Gateway can be embedded we create an example main see appendix \autoref{sec:examplelinuxgatewaymaincpp}.
+
+
+\subsection{Discussion}
+As shown in \autoref{sec:linuxudpsocket} the implementation of the SocketInterface for UDP as transmittion protocol is straight forward.
+Of course this is the case because UDP is connectionless like MQTT-SN and we can directly convert one UDP datagram's payload to one MQTT-SN packet.
+To justify that we also can use connection oriented transmittion protocol we will describe the implementation of BLE as transmission protocol including a connection oriented way of programming in \autoref{sec:BluetoothLowEnergySocket}.
+
+With the arduino linux abstraction library and the use of proper preprocessor commands we can port these Core Component to the target hardware and software environment defined in \autoref{subsec:targethardwareenvironment} and \autoref{subsec:targetsoftwareenvironment}.
+
+During the design and development phase of the whole MQTT-SN gateway (including Core Components and linux gateway implementation) we created a test project runnable on the target hardware and software environment defined in \autoref{subsec:targethardwareenvironment}.
+This project is called NodeMCU MQTT-SN gateway\footnote{\url{https://github.com/S3ler/NodeMCU-mqtt-sn-gateway/}, commit b0b9c6c9e8f6fee359eaee542a4466302565cee6} and justifies the success of our design.
+
+We benefit from using the Paho Embedded MQTT C/C++ Client Libraries instead of the MQTT C Client for Posix and Windows\cite{PahoMqttClient} because now the PahoMqttMessageHandler implementation can be reused with minimal changes on mbed\footnote{\url{https://www.mbed.com/en/}, accessed: 2017-10-07}, Arduino\footnote{\url{https://www.arduino.cc/}, accessed: 2017-10-07} or FreeRTOS\footnote{\url{http://www.freertos.org/}, accessed: 2017-10-07}\cite{PahoMqttEmbbeddedcClient}.
+Unfortunately we were not able to port the Paho Embedded MQTT C/C++ Client to the ESP8266 core for Arduino.
+Instead we implemented the PubSubMqttMessageHandler as MqttMessageHandler using the knolleary PubSubClient\footnote{\url{https://github.com/knolleary/pubsubclient}, commit dddfffbe0c497073d960f3b9f83c8400dc8cad6d}\cite{nodemcupubsubmqttmessagehandler}.
+
+
+In summary for this part project our approach is very suitable for further developments and enhancements.

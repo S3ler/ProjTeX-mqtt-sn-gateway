@@ -1,0 +1,87 @@
+\section{Unit and Regression Testing}\label{sec:unitandregressiontesting}
+Adding more code to support more transmission protocols, platform environments as well as to be sure not breaking existing code we created a test project\footnote{\url{https://github.com/S3ler/test-mqtt-sn-gateway}, commit: cef927611dc5bf3468645342ba0c46e36829106f}. By creating compliance test against the MQTT-SN standard we are able to justify the correctness of our implementation, too.
+In this section we give a short overview over our test environment consisting of the test framework GoogleTest, the used MQTT Broker, the MQTT-SN test client and the MQTT test client.
+Describing the whole test environment in detail is out of the scope of the project and we advise to take a look at the code directly.
+\subsection{Test Environment}\label{sec:testenvironment}
+As automatic test environment we used the development hardware described in \autoref{sec:developmentenvironment}.
+All tests are started from inside the Clion IDE.
+As test and mock framework we use GoogleTest\footnote{https://github.com/google/googletest.git commit 4bab34d2084259cba67f3bfb51217c10d606e175} and added it as git submodule directly in out test project.
+Because we need access to google test main's function argc and argv arguments, we created a global header file named google\_test\_main\_arguments.h allocating two extern variable char **t\_argv and int t\_argc.
+Then we changed google test main function to include google\_test\_main\_arguments.h and set the two variables. 
+The variable t\_argv[0] contains the execution path of the program,
+Then we can add configuration files to the correct places needed by the LinuxPersistent class during the test SetUp() function.
+\subsubsection{MQTT Broker}
+For having access to a MQTT Broker we used a Docker\footnote{Docker version 17.05.0-ce, build 89658be} container. The MQTT Broker is Mosquitto\footnote{mosquitto version 1.4.10 (build date 2016-10-12 14:51:25+0000)} using the Docker image jllopis/mosquitto:v1.4.10\footnote{ https://hub.docker.com/r/jllopis/mosquitto/tags/ Tag Name v1.4.10}.
+\subsubsection{MQTT-SN Test Client}
+As shown in  \autoref{img:mqttsntestclientcollaborationdiagram} we implement a MQTT-SN test client. 
+The MqttSnClient class provides a large amount of function to create well-formed and ill-formed MQTT-SN messages using the structs of the mqttsn\_test\_message header.
+With start\_loop(), stop\_loop() and loo() the MqttSnTestClient is able to run in a own thread and can be used asynchronously inside a single unit test.
+MQTT-SN messages are send to the tranmission protocol by the FakeSocketInterface, similar to the SocketInterface used in the Core Components.
+The FakeSocketInterface is very simple.
+It is only needed to set a MqttSnTestClient where the received datagram are forwarded to and implement a connect(), disconnect(), send() and loop() function.
+Only the loop() function is not self explaining. 
+During a loop() call the LinuxUdpSocket checks if the gateway or the broadcast socket contain a datagram.
+If yes, the datagram is forwarded them with the sender's device\_address converted from the IP address to the the MqttSnTestClient.
+The received datagrams are forwarded from the MqttSnTestClient to the MqttSnReceiverInterface.
+The MqttSnReceiverInterface has a a lot of receive\_*() function for each MQTT-SN packet type.
+It is mocked by the MqttSnReceiverMock.
+This allows us to use GoogleMock's matcher as a powerful tool for comparing expected and actual MQTT-SN packets.
+\image{12cm}{MqttSnTestClientCollaborationDiagram.png}{Collaboration diagram of the MQTT-SN test client.
+%The MqttSnTestClient class uses the structs defined in the mqttsn\_test\_messages to create byte oriented MQTT-SN packets.
+%They are send by the FakeSocketInterface implemented by FakeUdpSocket.
+%The MqttSnreceiverInterface implemented the MqttSnReceiverMock is used to check expected MQTT-SN packets byte wise.
+}{img:mqttsntestclientcollaborationdiagram}
+\subsubsection{MQTT Test Client}
+As shown on \autoref{img:mqtttestclientcollaborationdiagram} we implement a simple MQTT test client with the same Paho MQTT Embedded C Client already used in \autoref{sec:pahomqttmessagehandler}. 
+The main task of the client is to check if certain MQTT publishes and MQTT will message in form of MQTT publishes from the MQTT-SN gateway are received.
+The PahoMqttTestMessageHandler class is a adapted version of the MqttTestMessageHandler of the Core Components.
+We added a start\_loop(), stop\_loop() and loop() function to be able to run the MQTT test client in a thread and so asynchronously from the rest of the unit test.
+The MqttReceiverInterface and the MqttReceiverMock are necessary to use GoogleMock's functionality to compare the incoming MqttPublishes received by the PahoMqttTestMessageHandler\footnote{This has two reasons:
+	\begin{itemize}
+		\item with the use of GoogleMock's matcher we have a very powerful tool to comare expected and actual values.
+		\item mocking C++ interface is very easy with GoogleMock - mocking concrete classes very hard.
+	\end{itemize}
+}.
+% Matchers https://github.com/google/googletest/blob/master/googlemock/docs/CookBook.md#using-matchers
+\image{12cm}{MqttTestMessageHandlerClassDiagram.png}{Collaboration diagram of the MQTT test client.
+%The PahoMqttTestMessageHandler uses the Paho MQTT C Client library and the MqqtPublish, MQttReceiverInterface to create a MQTT test client.
+%The MqttReceiverMock implement the MqqtReceiverInterface.
+}{img:mqtttestclientcollaborationdiagram}
+\subsection{Test Overview}
+We divided out test cases in two group namely compliance and functional tests.
+Compliance tests stress the interface against well and ill-formed MQTT-SN packets and functional tests check if functionality of the gateway works as standardized or defined by us.
+Of course something stressing the interface includes testing all functionality - in these cases no (redundant) functional tests are written.
+\subsubsection{Compliance Tests}\label{sec:compliancetests}
+The compliance tests stresses especially the MqttSnMessageHandler of the Core Components.
+It shall provide well-formed and ill-formed message of a lot of cases to the gateway's SocketInterface.
+For every test the expected reply MQTT-SN test packet is created and given to the MqttSnReceiverMock. The GoogleMock framework then will check over some self written macros if each byte of the received and expected packets match.
+Of course for some tests we need to create a certain status of the MQTT-SN client in the MQTT-SN gateway.
+For example when we want to test if a client is disconnected by a well-formed disconnect message, we first need to connect the client gratefully to the gateway.
+These statuses are created in the SetUp() function of GoogleTest.
+Of course we first created test cases to check if the statuses can be achieved, before we implemented the dependent test cases.
+For example we first implemented the test cases for MQTT-SN connect packet until we moved on to test MQTT-SN disconnect packets.
+We oriented ourselves on the procedures of the MQTT-SN client life cycle introduced in \autoref{sec:mqttsnclientlifetime}.
+The compliance tests test the following MQTT-SN packet types: search gateway, connect including will topic and will message, register, publish all implemented Qualities of Service, subscribe, unsubscribe, ping request and disconnect.
+
+\subsubsection{Functional Tests}
+The functional test shall especially test the functionality of the MQTT-SN gateway implementation against the MQTT-SN standard or the behaviour definitions made by us.
+We oriented the functional test on the MQTT-SN procedures and MQTT-SN packet exchanges of the MQTT-SN client life cycle introduced in \autoref{sec:mqttsnclientlifetime}.
+If test cases are already checked by the compliance tests we do not execute the same tests again.
+The MQTT-SN client and gateway statuses for each test case are created during the SetUp() function of GoogleTest similiar to \autoref{sec:compliancetests}.
+We implemented test for the following procedures: advertisment, subscription, sleep and will message.
+The advertisment tests checks if the correct number MQTT-SN advertisment packets are receiving by MQTT-SN test client inside the give time period.
+The subscription test checks if MQTT-SN publishes are receiving to any kind of topic subscription and QoS methods.
+The sleep tests check if messages are correctly queued for the MQTT-SN client during the sleep procedure.
+The will message tests check if will message are receiving for timed out MQTT-SN client after the correct amount of duration.
+There are no test for connect and publish because they are already tested by the compliance tests.
+
+\subsection{Result of Testing}
+Our test environment with the MQTT-SN test client's exchangeable transmission protocol using the FakeSocketInterface proposed in \autoref{sec:testenvironment} give us the opportunity to reuse the test for multiple transmission protocols.
+In total we wrote 96 unit tests and at the moment 61 test pass and 35 fail\footnote{\url{https://github.com/S3ler/mqtt-sn-gateway/blob/master/Test\%20Results\%20-\%20runAll_Tests_including_longWill.html}, commit d151dae8d65d8c2a96f1d5c7efe7df8d4f3394fc}.
+Investigating the passing and failing test we observed that the most important functionalities are tested and supported.
+The failing test cases are parse errors of MQTT-SN packet.
+The MqttSnMessageHandler accepts ill-formed packets without disconnecting the MQTT-SN client.
+We were not able to implement all test cases until the end and fix all failing tests in time but the most important procedures especially connect, register, subscribe, publish, sleep and will message are tested properly.
+Unfortunately GoogleTest does not provide a way to measure code coverage of tests out of the box.
+We recognized too late that it is possible to use gcov\footnote{\url{http://notsopragmatic.blogspot.de/2012/01/code-coverage-with-gcc.html}, accessed 2017-10-08}, , part of the gnu compiler suite, to measure this.
+Adding more tests, fixing failing tests and measure code coverage is part of a future project.

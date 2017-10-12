@@ -92,7 +92,7 @@ We further assume a MQTT Client is already connected to a MQTT broker.
 For MQTT-SN we assume a MQTT-SN Client is already connected to a MQTT-SN gateway.
 Now we compare the minimal packet size of data transfer with value.
 For HTTP this is sending a HTTP GET request to the server. For MQTT and MQTT-SN it is sending a publish packet with QoS 0.
-HTTP need a minimum of 20 bytes\footnote{\url{https://stackoverflow.com/questions/9233316/what-is-the-smallest-possible-http-and-https-data-request}, accessed: 2017-10-08}, MQTT needs 8 bytes\footnote{message type and flags/QoS/Retain (1 byte) + remaining length (1 byte) + topic name length (2 byte) + topic name e.g. "a" (1 byte) + mesage id (2 bytes) + payload (1 byte) = 8 bytes} and MQTT-SN 8 bytes\footnote{Lenght (1 byte) + MsgType (1 byte) + Flags (1 bytes) + TopicId (2 bytes) + MsgId (2 bytes) + Data (1 byte) = 8 bytes}, too.
+HTTP need a minimum of 20 bytes\footnote{\url{https://stackoverflow.com/questions/9233316/what-is-the-smallest-possible-http-and-https-data-request}, accessed: 2017-10-08}, MQTT needs 8 bytes\footnote{message type and flags/QoS/Retain (1 byte) + remaining length (1 byte) + topic name length (2 byte) + topic name e.g. "a" (1 byte) + mesage id (2 bytes) + payload (1 byte) = 8 bytes} and MQTT-SN 8 bytes\footnote{Length (1 byte) + MsgType (1 byte) + Flags (1 bytes) + TopicId (2 bytes) + MsgId (2 bytes) + Data (1 byte) = 8 bytes}, too.
 When every byte counts MQTT and MQTT-SN outperform HTTP on application-layer.
 \subsubsection{Transmission Protocol Comparison}
 Next we do not compare HTTP any more because it is already outperformed as shown in \autoref{sec:applicationlayercomparison}.
@@ -143,6 +143,7 @@ The aggregating gateway maintains only one MQTT connection to the MQTT Broker an
 \autoref{img:mqttsntransmissionprotocolsanddevicetypes} combines the knowledge of the most used IoT hardware architectures and connectivity protocols from the Eclipse IoT Developer Survey's\cite{eclipseiotdevelopersurveyresults} with the MQTT-SN architecture proposed in the MQTT-SN standard\cite{mqttsnstandard}. We added our knowledge of device types.
 Once can now easily see which device type is used for which purpose.
 It shows that a typical MQTT-SN client is a constrained device without a operating system or a fixed power source (off the grid).
+From the left to the right the resources and available power increases.
 As MQTT-SN transmission protocol we use either WiFi (UDP), ZigBee, Bluetooth 4.0, or LoRa.
 The MQTT-SN gateway runs on a semi-constrained device connected to a reliable power source (on the grid).
 As usual MQTT runs over TCP/IP networks and uses WiFi (TCP), Ethernet or maybe 5G in the near future.
